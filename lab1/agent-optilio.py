@@ -1,7 +1,6 @@
 #!usr/bin/python3
 import random
 
-
 n,s = [int(x) for x in input().split()]
 for j in range(n):
     current_position = random.choice([0,1])
