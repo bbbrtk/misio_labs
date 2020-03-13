@@ -5,14 +5,16 @@ n,s = [int(x) for x in input().split()]
 for j in range(n):
     current_position = random.choice([0,1])
     loc = [0, 0]
-    iter = 0
-    ac = 0
+    iter = -1
+    ac = -1
     flag = False
 
     for i in range(s):
         i = input()[1:-1].split(', ')
         location = (int(i[0][1:]), int(i[1][:1]))
         loc[location[0]] = (1 if i[2][1:-1] == 'Dirty' else 0) # status
+        iter += 1
+        ac += 1
 
         if loc[current_position] == 1:
             loc[current_position] = 0
@@ -36,5 +38,3 @@ for j in range(n):
             current_position = 0 
             print('Left')
         
-        iter += 1
-        ac += 1
