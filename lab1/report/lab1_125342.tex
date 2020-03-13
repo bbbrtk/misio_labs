@@ -47,7 +47,7 @@ basicstyle=\tiny
 
 \title{MISIO 2020 - Inteligentne Agenty}
 \author{Bartosz Sobkowiak 125342}
-\date{12.02.2020}
+\date{12.03.2020}
 
 \usepackage{natbib}
 \usepackage{graphicx}
@@ -61,7 +61,7 @@ basicstyle=\tiny
     Całkowicie obserwowalne, deterministyczne, epizodyczne, statyczne, dyskretne, jednoagentowe.
     
     \item \textbf{Jeden z agentów okazał się dużo lepszy. Dlaczego?} \\
-    Drugi agent przestaje przemieszczać się lewo-prawo, jeśli oba pola są czyste. Wykonuje więc mniej ruchów (dostaje mniej punktów ujemnych), a osiąga taki sam efekt jak pierwszy agent, który cały czas sprawdza każda pole.
+    Drugi agent przestaje przemieszczać się lewo-prawo, jeśli oba pola są czyste. Wykonuje więc mniej ruchów (dostaje mniej punktów ujemnych), a osiąga taki sam efekt jak pierwszy agent, który cały czas sprawdza.
     
     \item \textbf{Czy agenty ReflexVacuumAgent lub ModelBasedVacuumAgent są racjonalne? Uzasadnij.} \\ 
     Agent pierwszy pomimo posiadania wiedzy dotyczącej stanu pól i tak się przemieszcza, więc nie maksymalizuje w ten sposób wartości miary jakości. Drugi agent stara się maksymalizować poprzez wykonywanie mniejszej liczby niepotrzebnych ruchów, lecz również nie jest racjonalny.
@@ -75,15 +75,16 @@ basicstyle=\tiny
 \end{enumerate}
 
 \section{Kod agenta}
+optilio: \textbf{bartek}
+kod: \href{https://github.com/bbbrtk/misio_labs/tree/master/lab1}{github.com/bbbrtk/misio\_labs/lab1}
+
 \pythonexternal{agent-code-only.py}
 
 \section{Histogram}
 Wartość oczekiwana: 44.3567 \\
 Odchylenie standardowe: 19.0248 \\
 Przedział ufności: (44.18990154342566, 44.52341845657433)
-
 \begin{center}
     \includegraphics[width=0.5\textwidth]{chart.png}
 \end{center}
-
 \end{document}
