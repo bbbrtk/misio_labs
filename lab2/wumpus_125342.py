@@ -14,14 +14,15 @@ PREC = '.2f'
 
 class Wumpus:
     def __init__(self, world, p):
-        self.p = p
+        self.p = np.float128(p)
         self.world = world
         self.breezes = []
+        self.visited = []
         self.fringe = []
         self.combinations = []
         self.probabilities = []
         self.dict_of_fringe_probs = {}
-        self.sum_of_probabilities = 1  
+        self.sum_of_probabilities = np.float128(1)  
      
 
     def find_fields_to_calculate(self):
@@ -30,8 +31,7 @@ class Wumpus:
         for i in range(y):
             for j in range(x): 
                 if self.world[i][j] == '-1.0': self.fringe.append((i,j))
-                if self.world[i][j] == '2.00': self.breezes.append((i,j))
-        
+                if self.world[i][j] == '2.00': self.breezes.append((i,j))        
         # print("fringe: \n", self.fringe)
 
 
@@ -76,34 +76,37 @@ class Wumpus:
 
 
     def probability_for_combinations(self):
-        max_num_of_pits = len(self.fringe)
+        max_num_of_pits = np.float128(len(self.fringe))
 
         for combination in self.combinations:
-            num_of_pits = len(combination)
+            num_of_pits = np.float128(len(combination))
             num_of_empties = max_num_of_pits - num_of_pits
-            probability = p**num_of_pits * (1-p)**num_of_empties
-            self.probabilities.append(probability) # change rounding
 
-        self.sum_of_probabilities = sum(self.probabilities)
-        print("probabilities: \n", self.probabilities)
+            probability = np.multiply(np.power(p, num_of_pits, dtype=np.float128), np.power(1-p, num_of_empties, dtype=np.float128))
+            # print(probability, type(probability))
+            self.probabilities.append(probability)
+
+        self.sum_of_probabilities = np.sum(self.probabilities)
+        # print("probabilities: \n", self.probabilities)
 
 
     def sum_up_probabilities(self, query):
         indexes = self.dict_of_fringe_probs[query]
-        p_sum = 0
+        p_sum = np.float128(0)
         for index in indexes:
             p_sum += self.probabilities[index]
         return p_sum
 
 
     def calculate_probabilities(self):
-        sum_of_all = sum(self.probabilities)
-        # print("sum_of_all: ", round(sum_of_all,4))
+        sum_of_all = np.sum(self.probabilities)
+        # print("sum_of_all: ", sum_of_all)
         for each in self.fringe:
             sum_of_query = self.sum_up_probabilities(each)
-            q = round(sum_of_query / sum_of_all, 2)
+            q = np.divide(sum_of_query, sum_of_all, dtype=np.float128)
             # print("field: ", each, " \t sum_of_query: ", round(sum_of_query, 4), "\t probability: ", q)
-            self.world[each[0]][each[1]] = q
+            q = np.around(q, decimals=2)
+            self.world[each[0]][each[1]] = format(q, PREC)
 
 
     def change_breeze_fileds_to_zero(self):
@@ -151,8 +154,13 @@ def pre_wumpus(world, p):
 
             elif world[i][j] == 'O':
                 ret[i][j] = format(0, PREC)
+                if ret[i-1][j] != '2.00': ret[i-1][j] = format(0, PREC)
+                if ret[i+1][j] != '2.00': ret[i+1][j] = format(0, PREC)
+                if ret[i][j-1] != '2.00': ret[i][j-1] = format(0, PREC)
+                if ret[i][j+1] != '2.00': ret[i][j+1] = format(0, PREC)
     
     # remove padding
+    # print(ret[1:-1, 1:-1])
     return ret[1:-1, 1:-1]
 
 
