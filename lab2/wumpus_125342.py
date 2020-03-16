@@ -1,16 +1,19 @@
 #!/usr/bin/python3
 
+
+from misio.uncertain_wumpus.testing import load_world
 import numpy as np
 import itertools
 from itertools import chain
-from misio.uncertain_wumpus.testing import load_world
 
 PREC = '.2f'
 
-# generate all pit possibilities given the observation
-# (A) calc prob for each one - then sum up
-# (B) calc prob for each combination with pit on queried cell - sum up 
-# prob for a pit in queried cell is B/A
+# TODO
+'''
+1. speed up generation of combination (generate only few combs) - like tree
+2. measure duration of functions
+3. delete some loops
+'''
 
 class Wumpus:
     def __init__(self, world, p):
@@ -182,8 +185,8 @@ def wumpus_wumpus(world,p):
 if __name__ == "__main__":
     import sys
 
-    # input_file = sys.stdin # uncomment
-    input_file = f = open("test_cases/2020_short.in", "r") # del
+    input_file = sys.stdin # uncomment
+    # input_file = f = open("test_cases/2020_short.in", "r") # del
     output_file = sys.stdout
     
     instances_num = int(input_file.readline())
