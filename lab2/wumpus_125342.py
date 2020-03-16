@@ -3,8 +3,9 @@
 
 from misio.uncertain_wumpus.testing import load_world
 import numpy as np
-import itertools
+import itertools, time, functools
 from itertools import chain
+import timeit
 
 PREC = '.2f'
 
@@ -19,9 +20,9 @@ class Wumpus:
     def __init__(self, world, p):
         self.p = np.float128(p)
         self.world = world
-        self.breezes = []
+        self.breezes = set()
         self.visited = []
-        self.fringe = []
+        self.fringe = [] # front
         self.combinations = []
         self.probabilities = []
         self.dict_of_fringe_probs = {}
@@ -34,23 +35,25 @@ class Wumpus:
         for i in range(y):
             for j in range(x): 
                 if self.world[i][j] == '-1.0': self.fringe.append((i,j))
-                if self.world[i][j] == '2.00': self.breezes.append((i,j))        
+                if self.world[i][j] == '2.00': self.breezes.add((i,j))  
+                      
         # print("fringe: \n", self.fringe)
 
-
+    
     def check_if_combination_is_sufficient(self, combination):
         ''' combination should cover all B (==2.0) fields on board '''
-        breezes_copy = self.breezes.copy()
+        breezes_copy = set()
         # print(breezes_copy)
+
         for each in combination:
             x = each[0]
             y = each[1]
-            if (x+1,y) in breezes_copy: breezes_copy.remove((x+1,y))
-            if (x-1,y) in breezes_copy: breezes_copy.remove((x-1,y))
-            if (x,y+1) in breezes_copy: breezes_copy.remove((x,y+1))
-            if (x,y-1) in breezes_copy: breezes_copy.remove((x,y-1))
+            breezes_copy.add((x+1,y))
+            breezes_copy.add((x-1,y))
+            breezes_copy.add((x,y+1))
+            breezes_copy.add((x,y-1))
 
-            if len(breezes_copy) == 0: 
+            if self.breezes.issubset(breezes_copy): 
                 return True
 
         return False
@@ -60,8 +63,10 @@ class Wumpus:
         ''' create list of combinations of all possible pits on board
         for each element in self.fringe create list of indexes to 
         particular combinations which contain this element '''
+        
         for each in self.fringe:
             self.dict_of_fringe_probs[each] = []
+
 
         j = 0
         for i in range(1, len(self.fringe)+1):
@@ -124,9 +129,9 @@ class Wumpus:
                 elif self.world[i][j] == '-1.O':
                     print(" !!! ERROR: -1 FOUND !!! ")
 
+
     def get_world(self):
         return self.world
-
 
 
 def print_result(lines, output_file):
@@ -167,26 +172,29 @@ def pre_wumpus(world, p):
     return ret[1:-1, 1:-1]
 
 
+
 def wumpus_wumpus(world,p):
     wumpus = Wumpus(world, p)
 
     wumpus.find_fields_to_calculate()
+
+    t1 = time.time()
     wumpus.generate_all_combinations()
+    print("time: ", time.time()-t1)
+
     wumpus.probability_for_combinations()
     wumpus.calculate_probabilities()
     wumpus.change_breeze_fileds_to_zero()
 
     world = wumpus.get_world()
-    # print("board:")
-
     return world
 
 
 if __name__ == "__main__":
     import sys
 
-    input_file = sys.stdin # uncomment
-    # input_file = f = open("test_cases/2020_short.in", "r") # del
+    # input_file = sys.stdin # uncomment
+    input_file = f = open("test_cases/2020_short.in", "r") # del
     output_file = sys.stdout
     
     instances_num = int(input_file.readline())
