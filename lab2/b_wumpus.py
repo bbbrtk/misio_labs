@@ -9,7 +9,8 @@ from operator import itemgetter
 import signal
 
 PREC = '.2f'
-TIMEOUT = 11
+TIMEOUT = 15
+SWITCH = 20
 
 class TimeoutException(Exception):   # Custom exception class
     pass
@@ -33,14 +34,10 @@ class Wumpus:
         self.fringe_brezze_sets = []
         self.combinations = []
         self.probabilities = []
-        self.dict_of_fringe_probs = []
         self.sum_of_probabilities = np.float128(1)  
-        # self.time1 = time.time()
-        self.comb = []
         self.visited = []
         self.fringe_incombs = []
-        self.probs = []
-        self.sum_probs = np.float128(1)  
+
 
     def find_fields_to_calculate(self):
         # self.time1 = time.time()
@@ -61,13 +58,11 @@ class Wumpus:
 
         self.fringe_len = len(self.fringe)
         self.breezes_len = len(self.breezes)
-        self.dict_of_fringe_probs = [ [] for i in range(self.fringe_len) ]
-
         self.fringe_incombs = [ [] for i in range(self.fringe_len) ]
 
         # print("fringe: \n", self.fringe)
 
-    
+   
     def check_if_combination_is_sufficient(self, subset_indexes, i):
         ''' combination should cover all B (==2.0) fields on board '''
         breezes_copy = set()
@@ -105,14 +100,14 @@ class Wumpus:
 
                         self.combinations.append(res_list)
                         # update list of probabilities per combination
-                        [self.dict_of_fringe_probs[each].append(j) for each in subset] 
+                        [self.fringe_incombs[each].append(j) for each in subset] 
                         j += 1
 
         # print("generate_all_comb: ", j, "/", k, " - ", self.fringe_len, "\t", time.time()-t1)
         # print("generate_all_comb: ", j, " - ", self.fringe_len, "\t", time.time()-t1)
         # print("combinations len: ", len(self.combinations))
         # print("combinations: \n", self.combinations)
-        # print("dict_of_fringe_probs: \n", self.dict_of_fringe_probs)
+        # print("fringe_incombs: \n", self.fringe_incombs)
 
 
     def check(self, f_indexes):
@@ -135,53 +130,49 @@ class Wumpus:
         if self.breezes.issubset(res_list): return True
         else: return False
 
+
     def support(self, flist, obligatory=[], added=0):
+        # if len(self.comb) < 5: print(self.fringe_incombs)
         ok = True
         added = 0
         fcopy = flist.copy()
-        # print("flist: ", flist)
+        # if len(self.comb) < 5: print(obligatory)
 
         for f in flist:
-            # print(f, "_f : ", self.fringe[f], " obl: ", obligatory, " vis: ", self.visited)
-            
-
+            # if len(self.comb) < 5: print(obligatory)
             if f not in obligatory:
                 fcopy.remove(f)
-                
-                # print("is ",  set(fcopy), " visited? ", set(fcopy) in self.visited)
-                if set(fcopy) not in self.visited:
-                                
-                    
+
+                fset = set(fcopy)
+                fset_len = len(fset)
+
+                if fset not in self.visited:
                     if self.check(fcopy):
-                        # print("good flist: ", fcopy)
-                        for each in fcopy: self.fringe_incombs[each].append(len(self.comb))
-                        self.comb.append(set(fcopy))
+                        ind = len(self.combinations)
+                        for each in fset: self.fringe_incombs[each].append(ind)
+                        self.combinations.append(fset)
 
-                        # if len(fcopy)*4 > self.breezes_len and len(fcopy) > 1:  
-                        if len(fcopy) > 1: 
-                            # print("\n NEXT LEVEL vvv")
+                        if fset_len*4 > self.breezes_len and fset_len > 1: 
                             self.support(fcopy, obligatory, added)
-                            # print("LEFT LEVEL")
-                    else: 
-                        if len(fcopy) > 1: 
-                            obligatory.append(f)
-                            # print("added oblig: ", f)
-                            added -= 1
-                
 
-                    self.visited.append(set(fcopy))
-                    # print("visited: ", set(fcopy) )
+                    else: 
+                        if fset_len*4 > self.breezes_len and fset_len > 1: 
+                            obligatory.append(f)
+                            added -= 1
+
+                    self.visited.append(fset)
+
                 fcopy.append(f)
 
             obligatory = obligatory[:added]
-        # print("--- fin support --- \n")
+
 
 
 
     def probability_for_combinations(self):
         max_num_of_pits = np.float128(self.fringe_len)
 
-        for combination in self.comb:
+        for combination in self.combinations:
             num_of_pits = np.float128(len(combination))
             num_of_empties = max_num_of_pits - num_of_pits
 
@@ -235,7 +226,8 @@ class Wumpus:
 
 
     def do_wumpus(self):
-        self.find_fields_to_calculate()
+        # print("wumpus 1")
+        # self.find_fields_to_calculate()
         
         signal.alarm(TIMEOUT)    
         # This try/except loop ensures that 
@@ -252,22 +244,37 @@ class Wumpus:
             self.change_breeze_fileds_to_zero()
 
     def do_wumpus_2(self):
-        self.find_fields_to_calculate()
-
-        self.comb.append(set(self.fringe))
+        # print("wumpus 2 >>>>>>>>>>>>>>>>>>")
+        # self.find_fields_to_calculate()
+        self.combinations.append(set(self.fringe))
         for each in self.fringe_incombs: each.append(0)
 
-        self.support(list(range(self.fringe_len)))
+        signal.alarm(TIMEOUT)    
 
-        # print("self.comb \t", self.comb)
+        # This try/except loop ensures that 
+        #   you'll catch TimeoutException when it's sent.
+        try:
+            fr = list(range(self.fringe_len))
+            self.support(fr, [], 0)
+            # if len(self.comb) < 20:
+            #     print(self.comb)
+        except TimeoutException:
+            self.change_breeze_fileds_to_zero()
+            # print("\n ---TIMEOUT --- \n")
+        else:
+            # Reset the alarm
+            signal.alarm(0)
+            self.probability_for_combinations()
+            self.calculate_probabilities()
+            self.change_breeze_fileds_to_zero()
 
-        self.probability_for_combinations()
-        self.calculate_probabilities()
-        self.change_breeze_fileds_to_zero()
 
-
-
-
+    def which_wumpus(self):
+        self.find_fields_to_calculate()
+        if self.fringe_len > SWITCH:
+            self.do_wumpus_2()
+        else:
+            self.do_wumpus()
 
 def print_result(lines, output_file):
     result = "\n".join([" ".join([str(x) for x in line]) for line in lines])
@@ -308,20 +315,23 @@ def pre_wumpus(world, p):
     return ret[1:-1, 1:-1]
 
 
-
 def wumpus_wumpus(world,p):
     wumpus = Wumpus(world, p)
-    wumpus.do_wumpus_2()
-    return wumpus.get_world()
+    wumpus.which_wumpus()
+    world = wumpus.get_world()
+    return world
 
 
 if __name__ == "__main__":
     import sys
 
-    # input_file = sys.stdin # uncomment
-    input_file = f = open("test_cases/2020_short.in", "r") # del
-    output_file = sys.stdout
     # t1 = time.time()
+
+    input_file = sys.stdin # uncomment
+    # input_file = f = open("test_cases/2019_02_medium.in", "r") # del
+    # input_file = f = open("test_cases/2020_short.in", "r") # del
+    output_file = sys.stdout
+
     instances_num = int(input_file.readline())
     for _ in range(instances_num):
         world, p = load_world(input_file)
@@ -331,4 +341,40 @@ if __name__ == "__main__":
         # out
         print_result(lines, output_file)
 
-    # print("all time: ",     time.time()-t1)
+
+
+    # print("time: ", time.time()-t1)
+
+
+    # def support(self, flist, obligatory=[], added=0):
+    #     ok = True
+    #     added = 0
+    #     fcopy = flist.copy()
+    #     # print("flist: ", flist)
+    #     for f in flist:
+    #         # print(f, "_f : ", self.fringe[f], " obl: ", obligatory, " vis: ", self.visited)
+    #         if f not in obligatory:
+    #             fcopy.remove(f)
+    #             # print("is ",  set(fcopy), " visited? ", set(fcopy) in self.visited)
+    #             if set(fcopy) not in self.visited:
+    #                 if self.check(fcopy):
+    #                     # print("good flist: ", fcopy)
+    #                     ind = len(self.comb)
+    #                     for each in fcopy: self.fringe_incombs[each].append(ind)
+    #                     self.comb.append(set(fcopy))
+    #                     # if len(fcopy)*4 > self.breezes_len and len(fcopy) > 1:  
+    #                     if len(fcopy)*4 > self.breezes_len and len(fcopy) > 1: 
+    #                         # print("\n NEXT LEVEL vvv")
+    #                         self.support(fcopy, obligatory, added)
+    #                         # print("LEFT LEVEL")
+    #                 else: 
+    #                     if len(fcopy)*4 > self.breezes_len and len(fcopy) > 1: 
+    #                         obligatory.append(f)
+    #                         # print("added oblig: ", f)
+    #                         added -= 1
+
+    #                 self.visited.append(set(fcopy))
+    #                 # print("visited: ", set(fcopy) )
+    #             fcopy.append(f)
+    #         obligatory = obligatory[:added]
+    #     # print("--- fin support --- \n")
