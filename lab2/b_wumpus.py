@@ -9,8 +9,12 @@ from operator import itemgetter
 import signal
 
 PREC = '.2f'
-TIMEOUT = 15
-SWITCH = 20
+TIMEOUT = 150
+SWITCH = 1
+
+# TODO:
+# add file checker
+# fix correctness
 
 class TimeoutException(Exception):   # Custom exception class
     pass
@@ -325,11 +329,11 @@ def wumpus_wumpus(world,p):
 if __name__ == "__main__":
     import sys
 
-    # t1 = time.time()
+   
 
-    input_file = sys.stdin # uncomment
-    # input_file = f = open("test_cases/2019_02_medium.in", "r") # del
-    # input_file = f = open("test_cases/2020_short.in", "r") # del
+    # input_file = sys.stdin # uncomment
+    # input_file = f = open("test_cases/2019_00_small.in", "r") # del
+    input_file = f = open("test_cases/2020_short.in", "r") # del
     output_file = sys.stdout
 
     instances_num = int(input_file.readline())
@@ -337,7 +341,11 @@ if __name__ == "__main__":
         world, p = load_world(input_file)
         # wumups
         world = pre_wumpus(world, p)
+
+        t1 = time.time()
         lines = wumpus_wumpus(world, p)
+        print(time.time() - t1)
+
         # out
         print_result(lines, output_file)
 
