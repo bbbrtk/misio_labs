@@ -9,8 +9,8 @@ from operator import itemgetter
 import signal
 
 PREC = '.2f'
-TIMEOUT = 5
-SWITCH = 5
+TIMEOUT = 2
+SWITCH = 20
 
 # TODO:
 # add file checker
