@@ -6,9 +6,11 @@ import numpy as np
 import itertools, time  
 from itertools import chain
 from operator import itemgetter
-import signal
+import random
+import sys
 
 PREC = '.8f'
+OUTPUT_FILE = sys.stdout
 
 class Field(IntEnum):
     """Znaki z ktorych sklada sie mapa swiata."""
@@ -46,8 +48,27 @@ class LostWumpus(object):
         self.p = p
         self.pj = pj
         self.pn = pn
+        self.exit_border_h = ('LEFT', 0)
+        self.exit_border_w = ('UP', 0)
         if exit_loc is None:
             exit_loc = [int(x) for x in np.where(map == Field.EXIT)]
+            ey, ex = exit_loc
+            left_ex = ex # abs(0 - ex)
+            right_ex = abs(self.w - ex)
+            if right_ex < left_ex:
+                # exit is closer to right border
+                self.exit_border_w = ('RIGHT', right_ex)
+            else:
+                self.exit_border_w = ('LEFT', left_ex)
+
+            up_ey = ey # abs(0 - ey)
+            down_ey = abs(self.h - ey)
+            if down_ey < up_ey:
+                # exit is closer to bottom border
+                self.exit_border_h = ('DOWN', down_ey)
+            else:
+                self.exit_border_h = ('UP', up_ey)
+
         self.exit_loc = list(exit_loc)
         self.position = list(exit_loc)
         self.moves = np.inf
@@ -58,6 +79,8 @@ class LostWumpus(object):
         self.max_moves = max_moves
 
         self.signal = self.position
+        self.random_moves = []
+        self.path = {Action.LEFT : 0, Action.DOWN : 0, Action.RIGHT : 0,  Action.UP : 0}
 
     def __str__(self):
         return super().__str__()
@@ -107,19 +130,84 @@ class LostWumpus(object):
         for i in range(self.h):
             for j in range(self.w):
                 self.board[i,j] = float(field_prob)
-                if self.signal == Field.CAVE:
-                    if self.map[i,j] == Field.CAVE:     self.board[i,j] *= self.pj
-                    elif self.map[i,j] == Field.EMPTY:  self.board[i,j] *= self.pn
-                    else: self.board[i,j] = 0
 
-
-        greatest_fields = np.argwhere(self.board == np.amax(self.board))
-        print(greatest_fields)
+                if self.map[i,j] == Field.CAVE:     self.board[i,j] *= self.pj
+                elif self.map[i,j] == Field.EMPTY:  self.board[i,j] *= self.pn
+                else: self.board[i,j] = 0
 
         print_result(self.board)
 
+
+    def first_move(self):
+        print('- first move -')
+        if (self.signal == Field.EXIT): self.finished = True
+        else:
+            greatest_fields = np.argwhere(self.board >= np.amax(self.board)*0.9)
+            for field in greatest_fields:
+                field_path = self.find_path_to_exit(tuple(field))
+                # update
+                for key in self.path.keys(): self.path[key] += field_path[key]
+
+                print(field, " - > ", field_path)
+            
+            print(self.path)
+            move = max(self.path.items(), key=itemgetter(1))[0]
+            self.path = {key: 0 for key in self.path}
+            return move
+
+
+    def find_path_to_exit(self, field):
+        path = {Action.LEFT : 0, Action.DOWN : 0, Action.RIGHT : 0, Action.UP : 0}
+        y, x = field
+        y_distance = y - self.exit_loc[0]
+        x_distance = x - self.exit_loc[1]
+        
+        #
+        # distance when goes through LEFT/RIGHT borders
+        if self.exit_border_w[0] == 'RIGHT': # distance from left border
+            x_distance_2 = x + self.exit_border_w[1]
+
+        elif self.exit_border_w[0] == 'LEFT':# distance from right border
+            x_distance_2 = -1*(abs(self.w - x) + self.exit_border_w[1])
+
+        # check if go straight or through borders
+        if abs(x_distance_2) < abs(x_distance): x_distance = x_distance_2
+
+        if x_distance > 0:
+            path[Action.LEFT] = x_distance
+        elif x_distance < 0:
+            path[Action.RIGHT] = abs(x_distance)
+        else: 
+            # do nothnig
+            pass
+
+        #
+        # distance when goes through UP/DOWN borders
+        if self.exit_border_h[0] == 'DOWN': # distance from upper border
+            y_distance_2 = y + self.exit_border_h[1]
+
+        elif self.exit_border_h[0] == 'UP':# distance from bottom border
+            y_distance_2 = -1*(abs(self.h - y) + self.exit_border_h[1])
+
+        # check if go straight or through borders
+        if abs(y_distance_2) < abs(y_distance): y_distance = y_distance_2
+
+        if y_distance > 0:
+            path[Action.UP] = y_distance
+        elif y_distance < 0:
+            path[Action.DOWN] = abs(y_distance)
+        else: 
+            # do nothnig
+            pass
+
+        return path
+
+
     def move(self):
+        print('- normal move -')
         print(Field(self.signal))
+
+
         """ TODO
         0. if dont know where we are - do random moves but without returns:
             up
@@ -130,7 +218,7 @@ class LostWumpus(object):
 
         1.  take ~10% of most probable ones (round down if less than 10% are unique):
             1.1. greatest_fields = np.argwhere(self.board == np.amax(self.board))
-            1.2 second_greatest = np.argwhere(self.board >= np.amax(self.board) - some_number)
+            1.2 second_greatest = np.argwhere(self.board >= np.amax(self.board) * 0.8)
             take first quartille or something
 
         2. for each great_field find path to exit and store as a dict of moves {'left': 2, 'up': 1}
@@ -141,19 +229,46 @@ class LostWumpus(object):
         
         """
 
-        if (self.signal == Field.EXIT): self.finished = True
+        
 
-        print("-- end move --")
+        print('-- end move --')
+
+
+    def random_move(self):
+        print('- random move -')
+        if len(self.random_moves) % 2 == 0: 
+            move = Action.UP
+        else:
+            if random.random() > 0.5: move = Action.LEFT
+            else: move = Action.RIGHT
+
+        self.random_moves.append(move)
+        return move
 
 
     def go(self):
         print(self.map)
-        while not self.finished:
-            self.signal = int(input())
-            self.first_analyze()
-            self.move()
 
-        print("-- THE END --")
+        # find first cave to define wumpus position
+        self.signal = int(input())
+        while self.signal == Field.EMPTY: # as long as we know nothing about position
+            move = self.random_move()
+            print(move, file=OUTPUT_FILE, flush=True)
+            self.signal = int(input())
+
+        # do first move
+        self.first_analyze()
+        move = self.first_move()
+        print(move, file=OUTPUT_FILE, flush=True)
+
+        # start normal moves
+        while not self.finished: 
+            self.signal = int(input())
+            if (self.signal == Field.EXIT): self.finished = True          
+            self.move()
+            
+
+        print(' -- THE END -- ')
 
 
 
@@ -183,7 +298,6 @@ def load_all_from_file():
 
 
 if __name__ == "__main__":
-    import sys 
     load_all_from_file()
 
 
