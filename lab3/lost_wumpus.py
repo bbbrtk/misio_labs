@@ -135,8 +135,6 @@ class LostWumpus(object):
                 elif self.map[i,j] == Field.EMPTY:  self.board[i,j] *= self.pn
                 else: self.board[i,j] = 0
 
-        print_result(self.board)
-
 
     def first_move(self):
         print('- first move -')
@@ -146,7 +144,7 @@ class LostWumpus(object):
             for field in greatest_fields:
                 field_path = self.find_path_to_exit(tuple(field))
                 # update
-                for key in self.path.keys(): self.path[key] += field_path[key]
+                for key in self.path.keys(): self.path[key] += field_path[key] # multiply by probability
 
                 print(field, " - > ", field_path)
             
@@ -202,6 +200,38 @@ class LostWumpus(object):
 
         return path
 
+    def update_probabilities(self, move):
+        boards_copy = self.board.copy()
+        
+        if move == Action.UP:
+            for height in range(self.h):
+                if height == self.h-1:  
+                    self.board[self.h-1] = boards_copy[0]
+                else: 
+                    self.board[height] = boards_copy[height+1]
+
+        elif move == Action.DOWN:
+            for height in range(self.h):
+                if height == 0:         
+                    self.board[0] = boards_copy[self.h-1]
+                else: 
+                    self.board[height] = boards_copy[height-1]
+        
+        elif move == Action.RIGHT:
+            for width in range(self.w):
+                if width == 0:         
+                    self.board[:][0] = boards_copy[:][self.w-1]
+                else: 
+                    self.board[:][width] = boards_copy[:][width-1]
+        
+        elif move == Action.LEFT:
+            for width in range(self.w):
+                if width == self.w-1:         
+                    self.board[:][self.w-1] = boards_copy[:][0]
+                else: 
+                    self.board[:][width] = boards_copy[:][width+1]
+
+        # exit = 0
 
     def move(self):
         print('- normal move -')
@@ -209,23 +239,12 @@ class LostWumpus(object):
 
 
         """ TODO
-        0. if dont know where we are - do random moves but without returns:
-            up
-            left or right
-            up
-            left or right
-            and so on
+        
+            0. move probabilities
 
-        1.  take ~10% of most probable ones (round down if less than 10% are unique):
-            1.1. greatest_fields = np.argwhere(self.board == np.amax(self.board))
-            1.2 second_greatest = np.argwhere(self.board >= np.amax(self.board) * 0.8)
-            take first quartille or something
+            1. calculate probability of move
 
-        2. for each great_field find path to exit and store as a dict of moves {'left': 2, 'up': 1}
-
-        3. make move wich occures the most often in all great_fields
-
-        repeat
+            2. update probabilities in board table
         
         """
 
@@ -258,8 +277,12 @@ class LostWumpus(object):
 
         # do first move
         self.first_analyze()
+        print_result(self.board)
         move = self.first_move()
         print(move, file=OUTPUT_FILE, flush=True)
+
+        self.update_probabilities(move)
+        print_result(self.board)
 
         # start normal moves
         while not self.finished: 
