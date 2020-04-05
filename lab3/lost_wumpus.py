@@ -159,7 +159,6 @@ class LostWumpus(object):
         y, x = field
         y_distance = y - self.exit_loc[0]
         x_distance = x - self.exit_loc[1]
-        
         #
         # distance when goes through LEFT/RIGHT borders
         if self.exit_border_w[0] == 'RIGHT': # distance from left border
@@ -178,7 +177,6 @@ class LostWumpus(object):
         else: 
             # do nothnig
             pass
-
         #
         # distance when goes through UP/DOWN borders
         if self.exit_border_h[0] == 'DOWN': # distance from upper border
@@ -200,6 +198,7 @@ class LostWumpus(object):
 
         return path
 
+
     def update_probabilities(self, move):
         boards_copy = self.board.copy()
         
@@ -220,16 +219,16 @@ class LostWumpus(object):
         elif move == Action.RIGHT:
             for width in range(self.w):
                 if width == 0:         
-                    self.board[:][0] = boards_copy[:][self.w-1]
+                    self.board[:,0] = boards_copy[:,self.w-1]
                 else: 
-                    self.board[:][width] = boards_copy[:][width-1]
+                    self.board[:,width] = boards_copy[:,width-1]
         
         elif move == Action.LEFT:
             for width in range(self.w):
                 if width == self.w-1:         
-                    self.board[:][self.w-1] = boards_copy[:][0]
+                    self.board[:,self.w-1] = boards_copy[:,0]
                 else: 
-                    self.board[:][width] = boards_copy[:][width+1]
+                    self.board[:,width] = boards_copy[:,width+1]
 
         # exit = 0
 
@@ -281,6 +280,9 @@ class LostWumpus(object):
         move = self.first_move()
         print(move, file=OUTPUT_FILE, flush=True)
 
+        print("-- update -- ")
+        move=Action.RIGHT
+        print(move, file=OUTPUT_FILE, flush=True)
         self.update_probabilities(move)
         print_result(self.board)
 
