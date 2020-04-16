@@ -6,11 +6,15 @@ import numpy as np
 import itertools, time  
 from itertools import chain
 from operator import itemgetter
+from sklearn.preprocessing import normalize, MinMaxScaler
+
 import random
 import sys
 
 PREC = '.8f'
 OUTPUT_FILE = sys.stdout
+MY_PATH_MEMORY = 5
+PERCENTAGE_OF_MOST_PROBABLE_POINTS = 0.9
 
 class Field(IntEnum):
     """Znaki z ktorych sklada sie mapa swiata."""
@@ -46,6 +50,7 @@ class LostWumpus(object):
         self.board = map.astype('float64')
         self.h, self.w = map.shape
         self.p = p
+        self.p_rest = (1-p)/4
         self.pj = pj
         self.pn = pn
         self.exit_border_h = ('LEFT', 0)
@@ -81,6 +86,8 @@ class LostWumpus(object):
         self.signal = self.position
         self.random_moves = []
         self.path = {Action.LEFT : 0, Action.DOWN : 0, Action.RIGHT : 0,  Action.UP : 0}
+        self.last_move = None
+        self.my_path = []
 
     def __str__(self):
         return super().__str__()
@@ -123,6 +130,7 @@ class LostWumpus(object):
         else:
             self.sensory_output = np.random.binomial(1, self.pn)
 
+
     def first_analyze(self):
         all_fields = self.h * self.w - 1
         field_prob = 1/all_fields
@@ -133,27 +141,66 @@ class LostWumpus(object):
 
                 if self.map[i,j] == Field.CAVE:     self.board[i,j] *= self.pj
                 elif self.map[i,j] == Field.EMPTY:  self.board[i,j] *= self.pn
-                else: self.board[i,j] = 0
+                elif self.map[i,j] == Field.EXIT:   self.board[i,j] = 0
 
 
-    def first_move(self):
-        print('- first move -')
+    def cave_analyze(self):
+        for i in range(self.h):
+            for j in range(self.w):
+                if self.map[i,j] == Field.CAVE:     self.board[i,j] *= self.pj
+                elif self.map[i,j] == Field.EMPTY:  self.board[i,j] *= self.pn
+                elif self.map[i,j] == Field.EXIT:   self.board[i,j] = 0
+
+
+    def empty_analyze(self):
+        for i in range(self.h):
+            for j in range(self.w):
+                if self.map[i,j] == Field.CAVE:     self.board[i,j] = 0
+                # elif self.map[i,j] == Field.EMPTY:  self.board[i,j] *= self.pn
+                elif self.map[i,j] == Field.EXIT:   self.board[i,j] = 0
+
+    # check if this move is not in the opposite direction
+    def block_counter_move(self, move):
+        if     (move == Action.LEFT and self.last_move == Action.RIGHT) \
+            or (move == Action.RIGHT and self.last_move == Action.LEFT) \
+            or (move == Action.UP and self.last_move == Action.DOWN) \
+            or (move == Action.DOWN and self.last_move == Action.UP):
+            return True
+
+        else: 
+            return False
+
+    # find manhatan distance for all most probable fields
+    # sum up and choose the most often occured direction
+    def select_move_direction(self):
+        print('- move -')
         if (self.signal == Field.EXIT): self.finished = True
         else:
-            greatest_fields = np.argwhere(self.board >= np.amax(self.board)*0.9)
+            greatest_fields = np.argwhere(
+                self.board >= np.amax(self.board) * PERCENTAGE_OF_MOST_PROBABLE_POINTS
+                )
+            # greatest_fields = np.argwhere(self.board > 0) 
             for field in greatest_fields:
                 field_path = self.find_path_to_exit(tuple(field))
                 # update
-                for key in self.path.keys(): self.path[key] += field_path[key] # multiply by probability
-
-                print(field, " - > ", field_path)
+                field_prob = self.board[field[0], field[1]]
+                for key in self.path.keys(): self.path[key] += field_path[key]
+                # print(field, " - > ", field_path)
             
             print(self.path)
-            move = max(self.path.items(), key=itemgetter(1))[0]
+            # sort dict
+            m = {k: v for k, v in sorted(self.path.items(), key=lambda item: item[1])}
+
+            # select best move, get next one if it's counter move
+            move = list(m.keys())[0]
+            if block_counter_move(move):
+                move = list(m.keys())[1]
+
+            # zeroing dict
             self.path = {key: 0 for key in self.path}
             return move
 
-
+    # find manhatan distance for PARTICULAR field
     def find_path_to_exit(self, field):
         path = {Action.LEFT : 0, Action.DOWN : 0, Action.RIGHT : 0, Action.UP : 0}
         y, x = field
@@ -198,7 +245,7 @@ class LostWumpus(object):
 
         return path
 
-
+    # if going up - move probs up etc.
     def update_probabilities(self, move):
         boards_copy = self.board.copy()
         
@@ -232,24 +279,81 @@ class LostWumpus(object):
 
         # exit = 0
 
-    def move(self):
-        print('- normal move -')
-        print(Field(self.signal))
+    # multiply field and its neighbours by p or p_rest
+    def recalulate_field(self, i, j, boards_copy):
+        # destination
+        self.board[i,j]             += boards_copy[i,j]*self.p
+        # down
+        if i+1 >= self.h:
+            self.board[0,j]         += boards_copy[i,j]*self.p_rest
+        else: 
+            self.board[i+1,j]       += boards_copy[i,j]*self.p_rest
+        # up
+        if i-1 < 0:
+            self.board[self.h-1,j]  += boards_copy[i,j]*self.p_rest
+        else: 
+            self.board[i-1,j]       += boards_copy[i,j]*self.p_rest
+        # right
+        if j+1 >= self.w:
+            self.board[i,0]         += boards_copy[i,j]*self.p_rest
+        else: 
+            self.board[i,j+1]       += boards_copy[i,j]*self.p_rest
+        # left
+        if j-1 < 0:
+            self.board[i, self.w-1] += boards_copy[i,j]*self.p_rest
+        else: 
+            self.board[i,j-1]       += boards_copy[i,j]*self.p_rest      
+
+    # multiply WHOLE BOARD by p or p_rest
+    def recalculate_probabilities(self):
+        boards_copy = self.board.copy()
+        self.board = np.zeros((self.h, self.w))
+
+        for i in range(self.h):
+            for j in range(self.w):
+                self.recalulate_field(i,j,boards_copy)
+
+    # update only possible ends of paths
+    def recalculate_only_possible_fields(self, possible):
+        boards_copy = self.board.copy()
+        # self.board = np.zeros((self.h, self.w))
+        for field in possible:
+            self.recalulate_field(field[0], field[1], boards_copy)
+
+    # find all fields which are the ENDPOINTS
+    # of already visited path in map
+    def find_path_in_map(self):
+        possible = []
+        for i in range(self.h):
+            for j in range(self.w):
+                start_point = [i, j]
+                add = True
+                for point in self.my_path:
+                    start_point[0] += point[1] # h
+                    start_point[1] += point[2] # w
+                    if self.map[start_point[0], start_point[1]] != point[0]:
+                        add = False
+                        break
+                if add: possible.append(start_point)
+
+        return possible
 
 
-        """ TODO
-        
-            0. move probabilities
+    def append_to_my_path(self, signal, move):
+        if move == Action.UP:
+            mh, mw = 1, 0
+        elif move == Action.DOWN:
+            mh, mw = -1, 0
+        elif move == Action.RIGHT:
+            mh, mw = 0, 1
+        elif move == Action.LEFT:
+            mh, mw = 0, -1
+        else:
+            mh, mw = 0, 0
 
-            1. calculate probability of move
-
-            2. update probabilities in board table
-        
-        """
-
-        
-
-        print('-- end move --')
+        self.my_path.append((signal, mh, mw))
+        if len(self.my_path) > MY_PATH_MEMORY:
+            self.my_path.pop(0)
 
 
     def random_move(self):
@@ -263,28 +367,62 @@ class LostWumpus(object):
         self.random_moves.append(move)
         return move
 
+    """
+    def move(self):
+        possible = find_path_in_map()
+        
+        partial_probability = 1/len(possible)
+        for each possible on board:
+            set partial_probability
+
+        recalucate_probabilities_for_possible()
+        select_move_direction()
+        do_move, append to my_path
+        update_probabilities()
+        normalize? (divide each field by sum of all probabilities)
+        REPEAT
+
+        next move doesn't remove previous probs, 
+        but add next ones based on new possible paths
+        --> consider multiplying line 187 by field probability to maintain proportions
+    """
+
+    def move(self):
+        print('- normal move -')
+        print(Field(self.signal))
+
+        self.append_to_my_path(self.signal, self.last_move)
+        possible = self.find_path_in_map()
+        print("possible: ", possible)
+
+        # if cave -> multiply by pj and pn
+        # if empty -> not in cave, zero all cave fields
+        # if self.signal == Field.CAVE:
+        #     self.cave_analyze()
+        # elif self.signal == Field.EMPTY:
+        #     self.empty_analyze()
+
+        # apply move probabilities
+        # self.recalculate_probabilities()
+
+        # select direction
+        self.last_move = self.select_move_direction()
+        print(self.last_move, file=OUTPUT_FILE, flush=True)
+
+        # move probabilities in selected direction
+        self.update_probabilities(self.last_move)
+        print_result(self.board)
+
+        
+
+        print('-- end move --')
+
 
     def go(self):
         print(self.map)
 
-        # find first cave to define wumpus position
-        self.signal = int(input())
-        while self.signal == Field.EMPTY: # as long as we know nothing about position
-            move = self.random_move()
-            print(move, file=OUTPUT_FILE, flush=True)
-            self.signal = int(input())
-
-        # do first move
+        # do first analyze
         self.first_analyze()
-        print_result(self.board)
-        move = self.first_move()
-        print(move, file=OUTPUT_FILE, flush=True)
-
-        print("-- update -- ")
-        move=Action.RIGHT
-        print(move, file=OUTPUT_FILE, flush=True)
-        self.update_probabilities(move)
-        print_result(self.board)
 
         # start normal moves
         while not self.finished: 
