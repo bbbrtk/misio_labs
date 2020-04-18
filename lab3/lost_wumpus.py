@@ -1,49 +1,24 @@
 #!/usr/bin/python3
 
 from misio.lost_wumpus._wumpus import *
+from misio.lost_wumpus.agents import *
 from misio.lost_wumpus.util import load_input_file, load_world_from_stdin
+from misio.optilio.lost_wumpus import run_agent
 import numpy as np
 import itertools, time  
-from itertools import chain
 from operator import itemgetter
-from sklearn.preprocessing import normalize, MinMaxScaler
 
 import random
 import sys
 
 PREC = '.8f'
 OUTPUT_FILE = sys.stdout
-MY_PATH_MEMORY = 5
-PERCENTAGE_OF_MOST_PROBABLE_POINTS = 0.9
-
-class Field(IntEnum):
-    """Znaki z ktorych sklada sie mapa swiata."""
-
-    EXIT = 2
-    """Znak umieszczany mapie oznaczajacy pole z wyjsciem."""
-
-    CAVE = 1
-    """Znak umieszczany mapie oznaczajacy pole z jama."""
-
-    EMPTY = 0
-    """Znak umieszczany mapie oznaczajacy puste pole."""
+MY_PATH_MEMORY = 1
+PERCENTAGE_OF_MOST_PROBABLE_POINTS = 1
+PRINT_ALL = False
 
 
-class Action(Enum):
-    UP = 'UP'
-    """Ruch w gore (w kierunku malejacych indeksow Y)."""
-
-    DOWN = 'DOWN'
-    """Ruch w dol (w kierunku rosnacych indeksow Y)."""
-
-    LEFT = 'LEFT'
-    """Ruch w lewo (w kierunku malejacych indeksow X)."""
-
-    RIGHT = 'RIGHT'
-    """Ruch w prawo (w kierunku rosnacych indeksow X)."""
-
-
-class LostWumpus(object):
+class MyWumpus(object):
     def __init__(self, map: np.ndarray, p: float, pj: float, pn: float, exit_loc: tuple = None, max_moves=None):
         assert isinstance(map, np.ndarray)
         self.map = map
@@ -86,8 +61,9 @@ class LostWumpus(object):
         self.signal = self.position
         self.random_moves = []
         self.path = {Action.LEFT : 0, Action.DOWN : 0, Action.RIGHT : 0,  Action.UP : 0}
-        self.last_move = None
+        self.last_move = Action.RIGHT
         self.my_path = []
+        self.first = True
 
     def __str__(self):
         return super().__str__()
@@ -96,6 +72,8 @@ class LostWumpus(object):
         self.moves = 0
         self.finished = False
 
+    def sense(self, sensory_input: bool):
+        self.signal = sensory_input
 
     def apply_move(self, action: Action):
         assert not self.finished
@@ -173,7 +151,7 @@ class LostWumpus(object):
     # find manhatan distance for all most probable fields
     # sum up and choose the most often occured direction
     def select_move_direction(self):
-        print('- move -')
+        if PRINT_ALL: print('- move -')
         if (self.signal == Field.EXIT): self.finished = True
         else:
             greatest_fields = np.argwhere(
@@ -183,18 +161,18 @@ class LostWumpus(object):
             for field in greatest_fields:
                 field_path = self.find_path_to_exit(tuple(field))
                 # update
-                field_prob = self.board[field[0], field[1]]
-                for key in self.path.keys(): self.path[key] += field_path[key]
+                # field_prob = self.board[field[0], field[1]] 
+                for key in self.path.keys(): self.path[key] += field_path[key] # * field_prob
                 # print(field, " - > ", field_path)
             
-            print(self.path)
+            if PRINT_ALL: print(self.path)
             # sort dict
             m = {k: v for k, v in sorted(self.path.items(), key=lambda item: item[1])}
 
             # select best move, get next one if it's counter move
-            move = list(m.keys())[0]
-            if block_counter_move(move):
-                move = list(m.keys())[1]
+            move = list(m.keys())[-1]
+            if self.block_counter_move(move):
+                move = list(m.keys())[-2]
 
             # zeroing dict
             self.path = {key: 0 for key in self.path}
@@ -304,6 +282,31 @@ class LostWumpus(object):
         else: 
             self.board[i,j-1]       += boards_copy[i,j]*self.p_rest      
 
+    # multiply field and its neighbours by 1/len(possible)
+    def recalulate_field_probs(self, i, j, prob):
+        # destination
+        self.board[i,j]             += prob*self.p
+        # down
+        if i+1 >= self.h:
+            self.board[0,j]         += prob*self.p_rest
+        else: 
+            self.board[i+1,j]       += prob*self.p_rest
+        # up
+        if i-1 < 0:
+            self.board[self.h-1,j]  += prob*self.p_rest
+        else: 
+            self.board[i-1,j]       += prob*self.p_rest
+        # right
+        if j+1 >= self.w:
+            self.board[i,0]         += prob*self.p_rest
+        else: 
+            self.board[i,j+1]       += prob*self.p_rest
+        # left
+        if j-1 < 0:
+            self.board[i, self.w-1] += prob*self.p_rest
+        else: 
+            self.board[i,j-1]       += prob*self.p_rest    
+
     # multiply WHOLE BOARD by p or p_rest
     def recalculate_probabilities(self):
         boards_copy = self.board.copy()
@@ -315,13 +318,12 @@ class LostWumpus(object):
 
     # update only possible ends of paths
     def recalculate_only_possible_fields(self, possible):
-        boards_copy = self.board.copy()
         # self.board = np.zeros((self.h, self.w))
         for field in possible:
-            self.recalulate_field(field[0], field[1], boards_copy)
+            self.recalulate_field_probs(field[0], field[1], 1/len(possible))
 
     # find all fields which are the ENDPOINTS
-    # of already visited path in map
+    # of already visited path on board
     def find_path_in_map(self):
         possible = []
         for i in range(self.h):
@@ -331,13 +333,25 @@ class LostWumpus(object):
                 for point in self.my_path:
                     start_point[0] += point[1] # h
                     start_point[1] += point[2] # w
+
+                    # if height out of bound
+                    if start_point[0] >= self.h:
+                        start_point[0] = start_point[0]-self.h
+                    elif start_point[0] < 0:
+                        start_point[0] = self.h + start_point[0]
+                    # if width out of bound
+                    if start_point[1] >= self.w:
+                        start_point[1] = start_point[1]-self.w
+                    elif start_point[1] < 0:
+                        start_point[1] = self.w + start_point[1]  
+
                     if self.map[start_point[0], start_point[1]] != point[0]:
                         add = False
                         break
+
                 if add: possible.append(start_point)
 
         return possible
-
 
     def append_to_my_path(self, signal, move):
         if move == Action.UP:
@@ -355,9 +369,18 @@ class LostWumpus(object):
         if len(self.my_path) > MY_PATH_MEMORY:
             self.my_path.pop(0)
 
+    def normalize(self):
+        p_sum = 0
+        for row in self.board:
+            p_sum += sum(row)
+
+        if p_sum > 0:
+            for i in range(self.h):
+                for j in range(self.w):
+                    self.board[i,j] /= p_sum
 
     def random_move(self):
-        print('- random move -')
+        if PRINT_ALL: print('- random move -')
         if len(self.random_moves) % 2 == 0: 
             move = Action.UP
         else:
@@ -367,71 +390,57 @@ class LostWumpus(object):
         self.random_moves.append(move)
         return move
 
-    """
+    # agent.move()
     def move(self):
-        possible = find_path_in_map()
-        
-        partial_probability = 1/len(possible)
-        for each possible on board:
-            set partial_probability
+        if PRINT_ALL: print('- normal move -')
+        if PRINT_ALL: print(Field(self.signal))
+        # self.signal = int(input())
 
-        recalucate_probabilities_for_possible()
-        select_move_direction()
-        do_move, append to my_path
-        update_probabilities()
-        normalize? (divide each field by sum of all probabilities)
-        REPEAT
+        # append last move to path
+        if self.first:
+            self.board = np.zeros((self.h, self.w))
+            self.my_path.append((self.signal, 0, 0))
+            self.first = False
+        else:
+            self.append_to_my_path(self.signal, self.last_move)
 
-        next move doesn't remove previous probs, 
-        but add next ones based on new possible paths
-        --> consider multiplying line 187 by field probability to maintain proportions
-    """
-
-    def move(self):
-        print('- normal move -')
-        print(Field(self.signal))
-
-        self.append_to_my_path(self.signal, self.last_move)
+        if PRINT_ALL: print("my path: ", self.my_path)
+        # find all possible sub-path endpoints
         possible = self.find_path_in_map()
-        print("possible: ", possible)
+        if PRINT_ALL: print("possible: ", possible)
 
-        # if cave -> multiply by pj and pn
-        # if empty -> not in cave, zero all cave fields
-        # if self.signal == Field.CAVE:
-        #     self.cave_analyze()
-        # elif self.signal == Field.EMPTY:
-        #     self.empty_analyze()
-
-        # apply move probabilities
-        # self.recalculate_probabilities()
+        # recalucalate probs
+        self.recalculate_only_possible_fields(possible)
+        self.normalize()
+        if PRINT_ALL: print_result(self.board)  
 
         # select direction
         self.last_move = self.select_move_direction()
-        print(self.last_move, file=OUTPUT_FILE, flush=True)
+        # print(self.last_move, file=OUTPUT_FILE, flush=True)
 
         # move probabilities in selected direction
         self.update_probabilities(self.last_move)
-        print_result(self.board)
+        # print_result(self.board)       
 
-        
+        if PRINT_ALL: print('-- end move --')
 
-        print('-- end move --')
+        return self.last_move
 
 
-    def go(self):
-        print(self.map)
-
-        # do first analyze
-        self.first_analyze()
+    def init_move(self):
+        if PRINT_ALL: print(self.map)
+        # self.board = np.zeros((self.h, self.w))
 
         # start normal moves
         while not self.finished: 
             self.signal = int(input())
-            if (self.signal == Field.EXIT): self.finished = True          
-            self.move()
+            if (self.signal == Field.EXIT): 
+                self.finished = True          
+            else:
+                self.move()
             
 
-        print(' -- THE END -- ')
+        if PRINT_ALL: print(' -- THE END -- ')
 
 
 
@@ -454,14 +463,15 @@ def load_all_from_file():
     worlds = load_input_file(input_file)
     for i in worlds:
         world, p, pj, pn = i
-        wumpus = LostWumpus(world, p, pj, pn)
+        wumpus = MyWumpus(world, p, pj, pn)
         wumpus.reset()
-        wumpus.go()
+        wumpus.init_move()
         # do stuff
 
 
 if __name__ == "__main__":
-    load_all_from_file()
+    # load_all_from_file()
+    run_agent(SnakeAgent)
 
 
         
