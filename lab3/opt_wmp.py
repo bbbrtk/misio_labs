@@ -13,16 +13,15 @@ import sys
 
 PREC = '.8f'
 OUTPUT_FILE = sys.stdout
-MY_PATH_MEMORY = 1
+MY_PATH_MEMORY = 5
 PERCENTAGE_OF_MOST_PROBABLE_POINTS = 1
 PRINT_ALL = False
 
 
-class OptWmp(object):
-    def __init__(self, map: np.ndarray, p: float, pj: float, pn: float, exit_loc: tuple = None, max_moves=None):
-        assert isinstance(map, np.ndarray)
+class MyWumpus(object):
+    def __init__(self, map: np.ndarray, p: float, pj: float, pn: float, exit_loc: tuple = None):
         self.map = map
-        self.board = map.astype('float64')
+        self.board = None
         self.h, self.w = map.shape
         self.p = p
         self.p_rest = (1-p)/4
@@ -50,20 +49,18 @@ class OptWmp(object):
                 self.exit_border_h = ('UP', up_ey)
 
         self.exit_loc = list(exit_loc)
-        self.position = list(exit_loc)
-        self.moves = np.inf
         self.finished = True
-        self.sensory_output = None
-        if max_moves is None:
-            max_moves = np.inf
-        self.max_moves = max_moves
 
-        self.signal = self.position
-        self.random_moves = []
-        self.path = {Action.LEFT : 0, Action.DOWN : 0, Action.RIGHT : 0,  Action.UP : 0}
+        self.signal = Field.EMPTY
         self.last_move = Action.RIGHT
         self.my_path = []
         self.first = True
+        self.empties = np.argwhere(map == Field.EMPTY)
+        self.caves = np.argwhere(map == Field.CAVE)
+        self.emp_probs = 0
+        self.cav_probs = 0
+        self.more_empties = True
+        self.last_possibles = []
 
     def __str__(self):
         return super().__str__()
@@ -75,33 +72,6 @@ class OptWmp(object):
     def sense(self, sensory_input: bool):
         self.signal = sensory_input
 
-    def first_analyze(self):
-        all_fields = self.h * self.w - 1
-        field_prob = 1/all_fields
-        
-        for i in range(self.h):
-            for j in range(self.w):
-                self.board[i,j] = float(field_prob)
-
-                if self.map[i,j] == Field.CAVE:     self.board[i,j] *= self.pj
-                elif self.map[i,j] == Field.EMPTY:  self.board[i,j] *= self.pn
-                elif self.map[i,j] == Field.EXIT:   self.board[i,j] = 0
-
-
-    def cave_analyze(self):
-        for i in range(self.h):
-            for j in range(self.w):
-                if self.map[i,j] == Field.CAVE:     self.board[i,j] *= self.pj
-                elif self.map[i,j] == Field.EMPTY:  self.board[i,j] *= self.pn
-                elif self.map[i,j] == Field.EXIT:   self.board[i,j] = 0
-
-
-    def empty_analyze(self):
-        for i in range(self.h):
-            for j in range(self.w):
-                if self.map[i,j] == Field.CAVE:     self.board[i,j] = 0
-                # elif self.map[i,j] == Field.EMPTY:  self.board[i,j] *= self.pn
-                elif self.map[i,j] == Field.EXIT:   self.board[i,j] = 0
 
     # check if this move is not in the opposite direction
     def block_counter_move(self, move):
@@ -118,31 +88,27 @@ class OptWmp(object):
     # sum up and choose the most often occured direction
     def select_move_direction(self):
         # if PRINT_ALL: print('- move -')
-        if (self.signal == Field.EXIT): self.finished = True
-        else:
-            greatest_fields = np.argwhere(
-                self.board >= np.amax(self.board) * PERCENTAGE_OF_MOST_PROBABLE_POINTS
-                )
-            # greatest_fields = np.argwhere(self.board > 0) 
-            for field in greatest_fields:
-                field_path = self.find_path_to_exit(tuple(field))
-                # update
-                # field_prob = self.board[field[0], field[1]] 
-                for key in self.path.keys(): self.path[key] += field_path[key] # * field_prob
-                # print(field, " - > ", field_path)
-            
-            # if PRINT_ALL: print(self.path)
-            # sort dict
-            m = {k: v for k, v in sorted(self.path.items(), key=lambda item: item[1])}
+        the_path = {Action.LEFT : 0, Action.DOWN : 0, Action.RIGHT : 0,  Action.UP : 0}
+        greatest_fields = np.argwhere(self.board >= np.amax(self.board))
 
-            # select best move, get next one if it's counter move
-            move = list(m.keys())[-1]
-            if self.block_counter_move(move):
-                move = list(m.keys())[-2]
+        for field in greatest_fields:
+            field_path = self.find_path_to_exit(tuple(field))
+            # field_path = self.path_to_exit_dict[tuple(field)]
+            # update
+            # field_prob = self.board[field[0], field[1]] 
+            for key in the_path.keys(): the_path[key] += field_path[key] # * field_prob
+            # print(field, " - > ", field_path)
+        
+        # if PRINT_ALL: print(the_path)
+        # sort dict
+        m = {k: v for k, v in sorted(the_path.items(), key=lambda item: item[1])}
 
-            # zeroing dict
-            self.path = {key: 0 for key in self.path}
-            return move
+        # select best move, get next one if it's counter move
+        move = list(m.keys())[-1]
+        if self.block_counter_move(move):
+            move = list(m.keys())[-2]
+
+        return move
 
     # find manhatan distance for PARTICULAR field
     def find_path_to_exit(self, field):
@@ -165,9 +131,7 @@ class OptWmp(object):
             path[Action.LEFT] = x_distance
         elif x_distance < 0:
             path[Action.RIGHT] = abs(x_distance)
-        else: 
-            # do nothnig
-            pass
+
         #
         # distance when goes through UP/DOWN borders
         if self.exit_border_h[0] == 'DOWN': # distance from upper border
@@ -183,9 +147,6 @@ class OptWmp(object):
             path[Action.UP] = y_distance
         elif y_distance < 0:
             path[Action.DOWN] = abs(y_distance)
-        else: 
-            # do nothnig
-            pass
 
         return path
 
@@ -247,28 +208,63 @@ class OptWmp(object):
 
     # multiply field and its neighbours by p or p_rest
     def recalulate_field(self, i, j, boards_copy):
+        ij_p_rest = boards_copy[i,j]*self.p_rest
         # destination
         self.board[i,j]             += boards_copy[i,j]*self.p
         # down
         if i+1 >= self.h:
-            self.board[0,j]         += boards_copy[i,j]*self.p_rest
+            self.board[0,j]         += ij_p_rest
         else: 
-            self.board[i+1,j]       += boards_copy[i,j]*self.p_rest
+            self.board[i+1,j]       += ij_p_rest
         # up
         if i-1 < 0:
-            self.board[self.h-1,j]  += boards_copy[i,j]*self.p_rest
+            self.board[self.h-1,j]  += ij_p_rest
         else: 
-            self.board[i-1,j]       += boards_copy[i,j]*self.p_rest
+            self.board[i-1,j]       += ij_p_rest
         # right
         if j+1 >= self.w:
-            self.board[i,0]         += boards_copy[i,j]*self.p_rest
+            self.board[i,0]         += ij_p_rest
         else: 
-            self.board[i,j+1]       += boards_copy[i,j]*self.p_rest
+            self.board[i,j+1]       += ij_p_rest
         # left
         if j-1 < 0:
-            self.board[i, self.w-1] += boards_copy[i,j]*self.p_rest
+            self.board[i, self.w-1] += ij_p_rest
         else: 
-            self.board[i,j-1]       += boards_copy[i,j]*self.p_rest      
+            self.board[i,j-1]       += ij_p_rest   
+
+    # ?
+    def recalulate_field_2(self, i, j):
+        # destination
+        self.board[i,j]             *= self.p
+        # down
+        if i+1 >= self.h:
+            self.board[0,j]         *= self.p_rest
+        else: 
+            self.board[i+1,j]       *= self.p_rest
+        # up
+        if i-1 < 0:
+            self.board[self.h-1,j]  *= self.p_rest
+        else: 
+            self.board[i-1,j]       *= self.p_rest
+        # right
+        if j+1 >= self.w:
+            self.board[i,0]         *= self.p_rest
+        else: 
+            self.board[i,j+1]       *= self.p_rest
+        # left
+        if j-1 < 0:
+            self.board[i, self.w-1] *= self.p_rest
+        else: 
+            self.board[i,j-1]       *= self.p_rest   
+     
+    # multiply WHOLE BOARD by p or p_rest
+    def recalculate_probabilities(self):
+        boards_copy = self.board.copy()
+        self.board = np.zeros((self.h, self.w))
+
+        for i in range(self.h):
+            for j in range(self.w):
+                self.recalulate_field(i,j,boards_copy)
 
     # multiply field and its neighbours by 1/len(possible)
     def recalulate_field_probs(self, i, j, prob):
@@ -295,26 +291,62 @@ class OptWmp(object):
         else: 
             self.board[i,j-1]       += prob*self.p_rest    
 
-        
-    # multiply WHOLE BOARD by p or p_rest
-    def recalculate_probabilities(self):
-        boards_copy = self.board.copy()
-        self.board = np.zeros((self.h, self.w))
-
-        for i in range(self.h):
-            for j in range(self.w):
-                self.recalulate_field(i,j,boards_copy)
-
     # update only possible ends of paths
     def recalculate_only_possible_fields(self, possible):
         # self.board = np.zeros((self.h, self.w))
         for field in possible:
             self.recalulate_field_probs(field[0], field[1], 1/len(possible))
 
+    # !!!
+    def recalulate(self):
+        if self.signal == Field.EMPTY:
+            # pass
+            if self.more_empties:
+                self.board += self.emp_probs
+                for f in self.caves:
+                    self.board[f[0],f[1]] -= self.emp_probs
+            else:
+                for f in self.empties:
+                    self.board[f[0],f[1]] += self.emp_probs
+        
+        elif self.signal == Field.CAVE:
+            if not self.more_empties:
+                self.board += self.cav_probs
+                self.board *= self.pj
+                for f in self.empties:
+                    self.board[f[0],f[1]] = ((self.board[f[0],f[1]]/self.pj) - self.cav_probs) * self.pn
+
+            else:
+                self.board *= self.pn
+                for f in self.caves:
+                    self.board[f[0],f[1]] = (self.board[f[0],f[1]]/self.pn + self.cav_probs) * self.pj
+
+
     # find all fields which are the ENDPOINTS
     # of already visited path on board
     def find_path_in_map(self):
         possible = []
+        # for p in self.last_possibles:
+        #     start_point = p
+        #     point = self.my_path[-1]
+        #     add = True
+
+        #     if start_point[0] >= self.h:
+        #         start_point[0] = start_point[0]-self.h
+        #     elif start_point[0] < 0:
+        #         start_point[0] = self.h + start_point[0]
+        #     # if width out of bound
+        #     if start_point[1] >= self.w:
+        #         start_point[1] = start_point[1]-self.w
+        #     elif start_point[1] < 0:
+        #         start_point[1] = self.w + start_point[1]  
+
+        #     if self.map[start_point[0], start_point[1]] != point[0]:
+        #         add = False
+
+        #     if add: possible.append(start_point)
+
+
         for i in range(self.h):
             for j in range(self.w):
                 start_point = [i, j]
@@ -344,9 +376,9 @@ class OptWmp(object):
 
     def append_to_my_path(self, signal, move):
         if move == Action.UP:
-            mh, mw = 1, 0
-        elif move == Action.DOWN:
             mh, mw = -1, 0
+        elif move == Action.DOWN:
+            mh, mw = 1, 0
         elif move == Action.RIGHT:
             mh, mw = 0, 1
         elif move == Action.LEFT:
@@ -364,67 +396,54 @@ class OptWmp(object):
             p_sum += sum(row)
 
         if p_sum > 0:
-            for i in range(self.h):
-                for j in range(self.w):
-                    self.board[i,j] /= p_sum
-
-    def random_move(self):
-        if PRINT_ALL: print('- random move -')
-        if len(self.random_moves) % 2 == 0: 
-            move = Action.UP
-        else:
-            if random.random() > 0.5: move = Action.LEFT
-            else: move = Action.RIGHT
-
-        self.random_moves.append(move)
-        return move
+            self.board = self.board / p_sum
+            # for i in range(self.h):
+            #     for j in range(self.w):
+            #         self.board[i,j] /= p_sum
+            
+            # for row in self.board:
+            #     row = [x/p_sum for x in row]
 
     # agent.move()
     def move(self):
-        """
-        1. recalulate_field() po wyborze ruchu w zadanym kierunku
-        2. recalculate_only_possible_fields:
-            CAVE - 1/possible pomnożyć całość przez pj i pn
-            EMPTY- 1/possible tylko dla EMPTY
-        """
+
         # if PRINT_ALL: print('- normal move -')
         # if PRINT_ALL: print(Field(self.signal))
         # self.signal = int(input())
 
         # append last move to path
         if self.first:
-            self.board = np.zeros((self.h, self.w))
             self.first = False
-        else:
-            pass
-
-        # find all possible sub-path endpoints        
-        possible = np.argwhere(self.map == self.signal) 
+            self.board = np.zeros((self.h, self.w))
+            self.append_to_my_path(0, None)
+            self.emp_probs = 1/len(self.empties)
+            self.cav_probs = 1/len(self.caves)
+            if self.emp_probs > self.cav_probs: 
+                self.more_empties = False
+            
+            if self.p >= 0.8:
+                MY_PATH_MEMORY = 8
+            elif self.p >= 0.9:
+                MY_PATH_MEMORY = 10
 
         # recalucalate probs
-        # self.recalculate_only_possible_fields(possible)
-
-        if self.signal == Field.EMPTY:
-            probs = 1/len(possible)
-            for f in possible:
-                self.board[f[0],f[1]] += probs
-        
-        elif self.signal == Field.CAVE:
-            probs = 1/len(possible)
-            for f in possible:
-                self.board[f[0],f[1]] += probs
-                self.board[f[0],f[1]] *= self.pj
-
-            others = np.argwhere(self.map == Field.EMPTY) 
-            for f in others:
-                self.board[f[0],f[1]] *= self.pn
+        self.append_to_my_path(self.signal, self.last_move)
+        possible = self.find_path_in_map()
+        if len(possible) > 0:
+            self.recalculate_only_possible_fields(possible)
+        else:
+            self.recalulate()
 
         self.normalize()
+        self.board[self.exit_loc[0],self.exit_loc[1]] = 0
         # if PRINT_ALL: print_result(self.board)  
 
         # select direction
         self.last_move = self.select_move_direction()
         # print(self.last_move, file=OUTPUT_FILE, flush=True)
+
+        # self.recalculate_probabilities()
+        # self.normalize()
 
         # move probabilities in selected direction
         self.update_2(self.last_move)
@@ -471,7 +490,7 @@ def load_all_from_file():
     worlds = load_input_file(input_file)
     for i in worlds:
         world, p, pj, pn = i
-        wumpus = OptWmp(world, p, pj, pn)
+        wumpus = MyWumpus(world, p, pj, pn)
         wumpus.reset()
         wumpus.init_move()
         # do stuff
@@ -479,7 +498,8 @@ def load_all_from_file():
 
 if __name__ == "__main__":
     # load_all_from_file()
-    run_agent(OptWmp)
+    run_agent(MyWumpus)
 
 
         
+

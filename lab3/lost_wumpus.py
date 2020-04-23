@@ -206,10 +206,10 @@ class MyWumpus(object):
             self.board[:,self.w-1] = left_row
 
     # multiply field and its neighbours by p or p_rest
-    def recalulate_field(self, i, j, boards_copy):
-        ij_p_rest = boards_copy[i,j]*self.p_rest
+    def recalulate_field(self, i, j, b_value):
+        ij_p_rest = b_value*self.p_rest
         # destination
-        self.board[i,j]             += boards_copy[i,j]*self.p
+        self.board[i,j]             += b_value*self.p
         # down
         if i+1 >= self.h:
             self.board[0,j]         += ij_p_rest
@@ -275,6 +275,7 @@ class MyWumpus(object):
             else:
                 for f in self.empties:
                     self.board[f[0],f[1]] += self.emp_probs
+
         
         elif self.signal == Field.CAVE:
             if not self.more_empties:
@@ -287,6 +288,7 @@ class MyWumpus(object):
                 self.board *= self.pn
                 for f in self.caves:
                     self.board[f[0],f[1]] = (self.board[f[0],f[1]]/self.pn + self.cav_probs) * self.pj
+
 
 
     # find all fields which are the ENDPOINTS
@@ -322,9 +324,9 @@ class MyWumpus(object):
 
     def append_to_my_path(self, signal, move):
         if move == Action.UP:
-            mh, mw = 1, 0
-        elif move == Action.DOWN:
             mh, mw = -1, 0
+        elif move == Action.DOWN:
+            mh, mw = 1, 0
         elif move == Action.RIGHT:
             mh, mw = 0, 1
         elif move == Action.LEFT:
@@ -343,12 +345,7 @@ class MyWumpus(object):
 
         if p_sum > 0:
             self.board = self.board / p_sum
-            # for i in range(self.h):
-            #     for j in range(self.w):
-            #         self.board[i,j] /= p_sum
-            
-            # for row in self.board:
-            #     row = [x/p_sum for x in row]
+
 
     # agent.move()
     def move(self):
@@ -365,10 +362,12 @@ class MyWumpus(object):
             self.cav_probs = 1/len(self.caves)
             if self.emp_probs > self.cav_probs: 
                 self.more_empties = False
+        else:
+            greatest_fields = np.argwhere(self.board >= np.amax(self.board))
+            for i in greatest_fields:
+                self.recalulate_field(i[0],i[1],self.board[i[0],i[1]])
 
-        # recalucalate probs
         self.recalulate()
-
         self.normalize()
         self.board[self.exit_loc[0],self.exit_loc[1]] = 0
         # if PRINT_ALL: print_result(self.board)  
@@ -376,9 +375,6 @@ class MyWumpus(object):
         # select direction
         self.last_move = self.select_move_direction()
         # print(self.last_move, file=OUTPUT_FILE, flush=True)
-
-        # self.recalculate_probabilities()
-        # self.normalize()
 
         # move probabilities in selected direction
         self.update_2(self.last_move)
@@ -436,5 +432,5 @@ if __name__ == "__main__":
     run_agent(MyWumpus)
 
 
-        
+
 
