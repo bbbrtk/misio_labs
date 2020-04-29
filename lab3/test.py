@@ -14,11 +14,11 @@ n = 10
 
 t1 = time.time()
 # test_locally("tests/2015.in", SnakeAgent, n=n)
-test_locally("tests/2020.in", SnakeAgent, n=n)
+test_locally("tests/2015.in", SnakeAgent, n=n)
 print(time.time() - t1)
 
 t1 = time.time()
 # test_locally("tests/2015.in", MyWumpus, n=n)
-test_locally("tests/2020.in", MyWumpus, n=n)
+test_locally("tests/2015.in", MyWumpus, n=n)
 
 print(time.time() - t1)
