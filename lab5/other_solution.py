@@ -14,7 +14,7 @@ def print_numpy_array(array: np.ndarray):
     np.savetxt(sys.stdout.buffer, array, fmt='%d')
 
 
-# @lru_cache(maxsize=None)
+@lru_cache(maxsize=None)
 def poisson(_lambda: float, n: int):
     return _lambda ** n * np.e ** (-_lambda) / factorial(n)
 
@@ -61,31 +61,29 @@ class Action:
         return self.state.gain * g - abs(self.to_move) * c # + self.calc_future_gain(i, gamma, next_states) if i < 40 else 0
 
 class StoreAgent(object):
-    def __init__(self):
+    def __init__(self, m: int):
+        self.m = m
         self.gamma = 0.0
-        self.m = 0
-        self.g = 0
-        self.c = 0
-        self.f = 0
         # number of guests
         self.l1 = 0
         self.l2 = 0
         # number of picked mushrooms
         self.l3 = 0
         self.l4 = 0
-        # arrays
-        self.s1_clients = []
-        self.s2_clients = []
+        self.g = 0
+        self.c = 0
+        self.f = 0
+        self.shop_1_poisson = []
+        self.shop_2_poisson = []
         self.picked_mushrooms_s1 = []
         self.picked_mushrooms_s2 = []
-        # other
         self.expected_gain = dict()
         self.next_states = dict()
         self.possible_actions = []
 
-    def _get_poissons_probabilities(self):
-        self.s1_clients = get_poisson_probabilities(self.l1, self.m)
-        self.s2_clients = get_poisson_probabilities(self.l2, self.m)
+    def get_poissons_probabilities(self):
+        self.shop_1_poisson = get_poisson_probabilities(self.l1, self.m)
+        self.shop_2_poisson = get_poisson_probabilities(self.l2, self.m)
         self.picked_mushrooms_s1 = get_poisson_probabilities(self.l3, self.m)
         self.picked_mushrooms_s2 = get_poisson_probabilities(self.l4, self.m)
 
@@ -128,8 +126,8 @@ class StoreAgent(object):
         return actions
 
     def generate_shops_state(self, s1_state: int, s2_state: int):
-        s1_states = self.generate_possible_states(s1_state, self.s1_clients, self.picked_mushrooms_s1)
-        s2_states = self.generate_possible_states(s2_state, self.s2_clients, self.picked_mushrooms_s2)
+        s1_states = self.generate_possible_states(s1_state, self.shop_1_poisson, self.picked_mushrooms_s1)
+        s2_states = self.generate_possible_states(s2_state, self.shop_2_poisson, self.picked_mushrooms_s2)
         for s1_state in s1_states:
             for s2_state in s2_states:
                 # s1_state[0] = probability
@@ -195,7 +193,7 @@ class StoreAgent(object):
 
     def run(self):
         # return self.simulation()
-        self._get_poissons_probabilities()
+        self.get_poissons_probabilities()
         arr = np.zeros((self.m + 1, self.m + 1))
 
         night_state = np.zeros_like(arr)
@@ -220,8 +218,8 @@ class StoreAgent(object):
 def run_agent():
     n_worlds = int(input())
     for world_i in range(n_worlds):
-        agent = StoreAgent()
-        agent.m = int(input())
+        m = int(input())
+        agent = StoreAgent(m)
         agent.gamma = float(input())
         agent.l1, agent.l2, agent.l3, agent.l4 = [int(x) for x in input().split()]
         agent.g = int(input())

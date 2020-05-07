@@ -73,6 +73,27 @@ class StoreAgent(object):
         return [range(-self.f, self.f)]
 
 
+    # -----------------------------------
+    # get probabilities for all grow states
+    def generate_possible_grow(self, state: int, grow_distribution):
+        max_number_to_grow = self.m - state + 1
+        # returns an array, if gorw_count == state then add state's probability and
+        # the remaining probability
+        return [State(grow_distribution[grow_count][2], grow_count)
+                if state == self.m else State(grow_distribution[grow_count][0], grow_count)
+                for grow_count in range(max_number_to_grow)]
+
+    # get probabilities for all sales states
+    def generate_possible_sales(self, state: int, shop_distribution):
+        max_number_to_sale = state + 1
+        # returns an array, if sell_count == state then add state's probability and
+        # the remaining probability
+        return [State(shop_distribution[sell_count][2], sell_count)
+                if sell_count == state else State(shop_distribution[sell_count][0], sell_count)
+                for sell_count in range(max_number_to_sale)]
+    # -----------------------------------
+
+
     def run(self):
         # return self.simulation()
         self._get_poissons_probabilities()
