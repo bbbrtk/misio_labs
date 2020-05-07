@@ -19,6 +19,9 @@ def get_poisson_probabilities(_lambda: int, n: int):
         poisson_results.append((val, density, val + density))
     return poisson_results
 
+def pretty_print(array: np.ndarray):
+    np.savetxt(sys.stdout.buffer, array, fmt='%d')
+
 class State:
     def __init__(self, probability, state):
         self.probability = probability
@@ -30,6 +33,20 @@ class ShopsState:
     def __init__(self, s1_state: State, s2_state: State):
         self.s1_state = s1_state
         self.s2_state = s2_state
+
+class Action:
+    def __init__(self, s1, s2, state, i):
+        self.s1 = s1
+        self.s2 = s2
+        self.to_move = i
+        self.gains = []
+        self.state = state
+        self.utility = 0
+
+    def calc_utility(self, i, gamma, g, c):
+        self.utility = self.state.gain * g - abs(self.to_move) * c
+        return self.utility
+
 
 class StoreAgent(object):
     def __init__(self):
@@ -73,32 +90,13 @@ class StoreAgent(object):
         return [range(-self.f, self.f)]
 
 
-    # -----------------------------------
-    # get probabilities for all grow states
-    def generate_possible_grow(self, state: int, grow_distribution):
-        max_number_to_grow = self.m - state + 1
-        # returns an array, if gorw_count == state then add state's probability and
-        # the remaining probability
-        return [State(grow_distribution[grow_count][2], grow_count)
-                if state == self.m else State(grow_distribution[grow_count][0], grow_count)
-                for grow_count in range(max_number_to_grow)]
-
-    # get probabilities for all sales states
-    def generate_possible_sales(self, state: int, shop_distribution):
-        max_number_to_sale = state + 1
-        # returns an array, if sell_count == state then add state's probability and
-        # the remaining probability
-        return [State(shop_distribution[sell_count][2], sell_count)
-                if sell_count == state else State(shop_distribution[sell_count][0], sell_count)
-                for sell_count in range(max_number_to_sale)]
-    # -----------------------------------
-
 
     def run(self):
         # return self.simulation()
         self._get_poissons_probabilities()
         arr = np.zeros((self.m + 1, self.m + 1))
 
+        pretty_print(arr)
         return arr
 
 def run_agent():

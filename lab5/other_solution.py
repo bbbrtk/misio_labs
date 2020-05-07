@@ -192,7 +192,7 @@ class StoreAgent(object):
         return arr
 
     def run(self):
-        # return self.simulation()
+        return self.simulation()
         self.get_poissons_probabilities()
         arr = np.zeros((self.m + 1, self.m + 1))
 
@@ -234,4 +234,4 @@ if __name__ == '__main__':
     else:
         from store_agent_test import test_store_agent
 
-        test_store_agent(print_invalid_coords=False, short_test=False)
+        test_store_agent(print_invalid_coords=False, short_test=True)
