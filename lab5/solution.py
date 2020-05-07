@@ -1,11 +1,7 @@
 import numpy as np
-import sys
 from math import factorial
-from functools import lru_cache
 
-TEST = True
 
-# @lru_cache(maxsize=None)
 def poisson(lab: float, n: int):
     return lab ** n * np.e ** (-lab) / factorial(n)
 
@@ -28,7 +24,7 @@ class StoreWumpus(object):
     def run(self):
         finalmatrix = np.zeros((self.m + 1, self.m + 1))
 
-        runs = self.m * 1000 / 2
+        runs = 3510
         
         store_1 = np.random.poisson(self.l1, runs)
         store_2 = np.random.poisson(self.l2, runs)
@@ -45,7 +41,8 @@ class StoreWumpus(object):
                 for move_shrooms in range(-self.f, self.f):
                     utility = 0
                     for i in range(runs):
-                        if move_shrooms > 0 and s1 < move_shrooms or move_shrooms < 0 and s2 < abs(move_shrooms):
+                        if move_shrooms > 0 and s1 <= move_shrooms \
+                            or move_shrooms < 0 and s2 <= abs(move_shrooms):
                             continue
 
                         calc = min(store_1[i], max(0, s1 - move_shrooms)) * self.g \
@@ -55,39 +52,38 @@ class StoreWumpus(object):
 
                     results[move_shrooms + self.f] += utility
 
-                best_value = np.argmax(results)
-                finalmatrix[s1, s2] = best_value if best_value != 0 else self.f
+                finalmatrix[s1, s2] = np.argmax(results)
 
         finalmatrix -= self.f
 
         print('\n'.join([' '.join([str(cell)[:-2] for cell in row]) for row in finalmatrix]))
         return finalmatrix
 
-def test():
-    agent = StoreWumpus()
-    agent.m = 4
-    agent.gamma = 0.95
-    agent.l1 = 1
-    agent.l2 = 2
-    agent.l3 = 3
-    agent.l4 = 4
-    agent.g = 5
-    agent.c = 2
-    agent.f = 4
+# def test():
+#     agent = StoreWumpus()
+#     agent.m = 4
+#     agent.gamma = 0.95
+#     agent.l1 = 1
+#     agent.l2 = 2
+#     agent.l3 = 3
+#     agent.l4 = 4
+#     agent.g = 5
+#     agent.c = 2
+#     agent.f = 4
 
-    agent._get_poissons_probabilities()
+#     agent._get_poissons_probabilities()
     
-    for s1 in range(agent.m + 1):
-        for s2 in range(agent.m + 1):
-            sale_profit = s1*agent.g + s2*agent.g
-            # p3% szans ze w sklepie s1 wyrosnie Y1 grzybow
-            # p4% szans ze w sklepie s2 wyrosnie Y2 grzybow
+#     for s1 in range(agent.m + 1):
+#         for s2 in range(agent.m + 1):
+#             sale_profit = s1*agent.g + s2*agent.g
+#             # p3% szans ze w sklepie s1 wyrosnie Y1 grzybow
+#             # p4% szans ze w sklepie s2 wyrosnie Y2 grzybow
 
-            # p1% szans ze w sklepie s1 bedzie X1 gosci -> wtedy zarobek to min(X1, Y1) * g
-            # p2% szans ze w sklepie s2 bedzie X2 gosci -> wtedy zarobek to min(X2, Y2) * g
+#             # p1% szans ze w sklepie s1 bedzie X1 gosci -> wtedy zarobek to min(X1, Y1) * g
+#             # p2% szans ze w sklepie s2 bedzie X2 gosci -> wtedy zarobek to min(X2, Y2) * g
 
-            # mozna zwiekszyc zarobek przesuwajac Z <= f grzybow:
-            # koszt to Z*c
+#             # mozna zwiekszyc zarobek przesuwajac Z <= f grzybow:
+#             # koszt to Z*c
 
 
 
@@ -105,7 +101,4 @@ def run_agent():
 
 
 if __name__ == '__main__':
-    if TEST:
-        test()
-    else:
-        run_agent()
+    run_agent()
