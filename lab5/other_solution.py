@@ -14,7 +14,7 @@ def print_numpy_array(array: np.ndarray):
     np.savetxt(sys.stdout.buffer, array, fmt='%d')
 
 
-@lru_cache(maxsize=None)
+# @lru_cache(maxsize=None)
 def poisson(_lambda: float, n: int):
     return _lambda ** n * np.e ** (-_lambda) / factorial(n)
 
@@ -43,19 +43,16 @@ class ShopsState:
 
 
 class Action:
-    def __init__(self, s1, s2, state, i):
+    def __init__(self, s1, s2, income, i):
         self.s1 = s1
         self.s2 = s2
         self.to_move = i
+        self.income = income
         self.gains = []
-        self.state = state
-    # def calc_future_gain(self, i, gamma, next_states):
-    #     key = (self.s1, self.s2)
-    #     if key in next_states:
-    #         for next_states_list in next_states[key]:
-    #             for next_state in next_states_list:
+        self.state = None
 
-        return 0
+    def print(self):
+        print(self.to_move, self.income.s1_state, self.s1, self.s2)
 
     def calc_utility(self, i, gamma, g, c, next_states):
         return self.state.gain * g - abs(self.to_move) * c # + self.calc_future_gain(i, gamma, next_states) if i < 40 else 0
@@ -150,13 +147,14 @@ class StoreAgent(object):
         to_move_to_s1 = min(s2, self.f, max(self.m - s1, 0))
         to_move_to_s2 = min(s1, self.f, max(self.m - s2, 0))
 
-        for i in range(to_move_to_s1, -to_move_to_s2 - 1, 1):
+        for i in range(-to_move_to_s1-1, to_move_to_s2, 1):
             _s1 = min(s1 - i, self.m)
             _s2 = min(s2 + i, self.m)
-            key = ()
-            if key not in self.possible_actions:
-                self.possible_actions[key] = []
-            self.possible_actions.append(Action(_s1, _s2, income, i))
+            # key = ()
+            # if key not in self.possible_actions:
+            #     self.possible_actions[key] = []
+            ac = Action(_s1, _s2, income[s1][s2], i)
+            self.possible_actions.append(ac)
 
     def calc_result(self, s1, s2, income):
         self.possible_actions
@@ -164,7 +162,7 @@ class StoreAgent(object):
         return 0
 
     def simulation(self):
-        simulation_count = 1000
+        simulation_count = 3000
         l1 = np.random.poisson(self.l1, simulation_count)
         l2 = np.random.poisson(self.l2, simulation_count)
         u = dict()
@@ -191,29 +189,49 @@ class StoreAgent(object):
         print_numpy_array(arr)
         return arr
 
+
+    def simu2(self):
+        finalmatrix = np.zeros((self.m + 1, self.m + 1))
+
+        runs = int(self.m * 100 / 4)
+        
+        store_1 = np.random.poisson(self.l1, runs)
+        store_2 = np.random.poisson(self.l2, runs)
+        shrooms_1 = np.random.poisson(self.l3, runs)
+        shrooms_2 = np.random.poisson(self.l4, runs)
+
+        state = self.m + 1
+
+        for s1 in range(state):
+            for s2 in range(state):
+
+                results = np.zeros((state * 2))
+
+                for move_shrooms in range(-self.f, self.f):
+                    utility = 0
+                    for i in range(runs):
+                        if move_shrooms > 0 and s1 <= move_shrooms or move_shrooms < 0 and s2 <= abs(move_shrooms):
+                            continue
+
+                        calc = min(store_1[i], max(0, s1 - move_shrooms)) * self.g \
+                                + min(store_2[i], max(0, s2 + move_shrooms)) * self.g \
+                                - abs(move_shrooms) * self.c
+                        utility += calc
+
+                    results[move_shrooms + self.f] += utility
+
+                best_value = np.argmax(results)
+                finalmatrix[s1, s2] = best_value if best_value != 0 else self.f
+
+        finalmatrix -= self.f
+
+        print('\n'.join([' '.join([str(cell)[:-2] for cell in row]) for row in finalmatrix]))
+        return finalmatrix
+
     def run(self):
-        return self.simulation()
-        self.get_poissons_probabilities()
-        arr = np.zeros((self.m + 1, self.m + 1))
+        # return self.simulation()
+        return self.simu2()
 
-        night_state = np.zeros_like(arr)
-        day_state = np.zeros_like(arr)
-
-        income = []
-        for s1 in range(self.m + 1):
-            row = []
-            for s2 in range(self.m + 1):
-                row.append(self.generate_shops_state(s1, s2))
-            income.append(row)
-        for s1 in range(self.m+1):
-            for s2 in range(self.m+1):
-                self.get_first_state(s1, s2, income)
-        for s1 in range(self.m+1):
-            for s2 in range(self.m+1):
-                arr[s1, s2] = self.calc_result(s1, s2, income)
-
-        print_numpy_array(arr)
-        return arr
 
 def run_agent():
     n_worlds = int(input())
@@ -234,4 +252,4 @@ if __name__ == '__main__':
     else:
         from store_agent_test import test_store_agent
 
-        test_store_agent(print_invalid_coords=False, short_test=True)
+        test_store_agent(print_invalid_coords=False, short_test=False)
