@@ -19,6 +19,17 @@ def get_poisson_probabilities(_lambda: int, n: int):
         poisson_results.append((val, density, val + density))
     return poisson_results
 
+class State:
+    def __init__(self, probability, state):
+        self.probability = probability
+        self.state = state
+        self.gain = 0
+
+
+class ShopsState:
+    def __init__(self, s1_state: State, s2_state: State):
+        self.s1_state = s1_state
+        self.s2_state = s2_state
 
 class StoreAgent(object):
     def __init__(self):
@@ -48,6 +59,18 @@ class StoreAgent(object):
         self.s2_clients = get_poisson_probabilities(self.l2, self.m)
         self.picked_mushrooms_s1 = get_poisson_probabilities(self.l3, self.m)
         self.picked_mushrooms_s2 = get_poisson_probabilities(self.l4, self.m)
+
+    def _get_gain(self, number_of_mushrooms):
+        return self.g * number_of_mushrooms
+
+    def _get_moving_cost(self, number_of_mushrooms):
+        if number_of_mushrooms < self.f:
+            return self.c * number_of_mushrooms
+        else:
+            return self.c * self.f
+
+    def _get_f_range(self):
+        return [range(-self.f, self.f)]
 
 
     def run(self):
