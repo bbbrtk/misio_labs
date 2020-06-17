@@ -1,32 +1,85 @@
 # Lab 6 Q-learning w świecie Pacmana
 
-## Acknowledgement
-Zadanie to bazuje (włącznie z kodem) na jednym z zadań z kursu [CS188 na UC Berkley](http://ai.berkeley.edu/home.html), dostępnym także na [edX](https://edge.edx.org/courses/BerkeleyX/CS188x-8/Artificial_Intelligence/about) jeśli ktoś nie planuje zmieniać uczelni w najbliższym czasie. Gorąco zachęcamy do wzięcia w nim udziału.
+> Zadanie to bazuje (włącznie z kodem) na jednym z zadań z kursu [CS188 na UC Berkley](http://ai.berkeley.edu/home.html), dostępnym także na [edX](https://edge.edx.org/courses/BerkeleyX/CS188x-8/Artificial_Intelligence/about), zachęcam do wzięcia w nim udziału.
 
 ## Cel
-Celem tego ćwiczenia jest poznanie jednego z bardziej popularnych i eleganckich algorytmów uczenia ze wzmocnieniem Q-learningu. 
+Celem tego ćwiczenia jest poznanie jednego z najbardziej popularnych i eleganckich algorytmów uczenia ze wzmocnieniem: Q-learningu. 
 
 ## Zadanie
-Zadaniem jest zaimplementowanie algorytmu Q-learninig, który będzie umiał grać w Pacmana. Rozwiązanie przetestowane zostanie wielokrotnie na wielu instancjach - część plansz jest dostępna (można się na nich uczyć) w folderze [pacman_layouts](pacman_layouts). 
+Zadaniem jest zaimplementowanie algorytmu Q-learninig, który nauczy się grać w Pacmana i osiągnie średnio jak najlepszy wynik (punkty generowane są przez środowisko za zbieranie pigułek i zjadanie duszków). Jest to uczenie ze wzmocnieniem - w każdym momencie nasz agent otrzymuje stan, ma wykonać akcję, a następnie otrzymuje nagrodę, którą ma nauczyć się maksymalizować. Każdy epizod składa się z wielu takich akcji - od momentu wejścia Pacmana na planszę do momentu jego śmierci lub zwycięstwa (zjedzenia wszystkich kropek). Rozwiązanie przetestowane zostanie na 100 epizodach na 13 instancjach z losowymi lub złośliwymi duchami - część plansz jest dostępna  w folderze [pacman_layouts](pacman_layouts) (można się na nich uczyć, można też stworzyć własne). 
 
-> Niestety nie ma żadnej automatycznej metody weryfikacji faktycznego zaimplementowania Q-learning poza weryfikacją kodu. W przypadku wykrycia braku implementacji Q-learningu (a coś innego, np systemy regułowe, przeszukiwanie drzewa itd.) rozwiązanie nie zostanie zakceptowane (0 punktów).
+Rozwiązania powinny być już nauczonymi agentami, lecz zgłoszenie powinno zawierać też **kod** i **dane** użyte do treningu oraz **instrukcję** odtworzenia uczenia w sposób deterministyczny. **W przypadku braku kodu uczącego, zadanie nie zostanie zaliczone.**
 
-Rozwiązania powinny być już nauczonymi agentami, lecz zgłoszenie powinno zawierać też kod i dane użyte do treningu oraz sposób odtworzenia uczenia (preferencyjnie z ustawionym seedem). **W przypadku braku kodu uczącego zadanie nie zostanie zaliczone.**
+> Niestety nie ma żadnej automatycznej metody weryfikacji faktycznego zaimplementowania Q-learning poza weryfikacją kodu. W przypadku wykrycia braku implementacji Q-learningu (a coś innego, np systemy regułowe, przeszukiwanie drzewa itd.) rozwiązanie nie zostanie zakceptowane (0 punktów). W przypadku wykrycia skopiowania kodu z internetu także przyznane zostanie 0 punktów.
 
-## Kod
-Do odpalenia kodu lokalnie posłużyć może plik [pacman_run.py](pacman_run.py). By zagrać w Pacmana osobiście wystarczy odpalić skrypt. Skrypt ten pozwala też na odpalanie i testowanie agentów, by poznań szczegóły użyj przełącznika **--help**/**-h**.
+## Od czego zacząć
+Sklonować to repozytorium, zainstalować pakiet misio, następnie odpalić skrypt [pacman_run.py](pacman_run.py). Uruchomi on pojedynczą grę (obsługa przez klawiaturę).
 
-Do odpalenia kodu na optil.io zalecamy użyć klasy **StdIOPacmanRunner**, której zastosowanie jest zaprezentowane w skrypcie [greedy_solution.py](greedy_solution.py) wykorzystującym agenta zachłannego, który jest jednak z zabawy wykluczony (nie implementuje Q-learningu).
+Skrypt ma wiele opcji, aby je zobaczyć nalezy użyć przełącznika **--help**/**-h**. Można tu odpalać własnych agentów, grać samemu, testować, trenować. Zachęcam do przeskanowania jego treści i dowolnych modyfikacji (będą konieczne do uczenia).
 
-Do samej implementacji mogą być pomocne pliki [qlearningAgents.py](qlearningAgents.py) oraz [featureExtractors.py](featureExtractors.py) (nie jest absolutnie konieczne by ich użyć, ale mogą okazać się pomocne).
+Jeśli nie chcemy grać sami możemy odpalić losowego z misio.pacman.agents.RandomAgent i obejrzeć jego implementację.
 
->> Do zaliczenia zadania wystarczający jest liniowy aproksymator, lecz zachęcamy do zaimplementowania czegoś bardziej skomplikowanego np. sieci neuronowych czy nawet [DQN](https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf).
+## Pierwsze zgłoszenie
+
+Wyżej wspomniany skrypt pokazuje jak odpalać agentów lokalnie. By zgłosić agenta na [Optil.io](https://www.optil.io/optilion/problem/3179) należy użyć **StdIOPacmanRunner**, który załatwi wszelką komunikację przez stdin i stdout dla agenta już kompatybilnego z lokalnym interfacem. Zastosowanie wrappera zaprezentowane jest  w skrypcie [greedy_solution.py](greedy_solution.py) wykorzystującym agenta zachłannego, który jest jednak z zabawy wykluczony (nie implementuje Q-learningu).
+
+## Kod uczący
+Żeby zadanie zostało zaliczone należy wysłać także kod uczący i instrukcję. W takim wypadku przyda się wrzucenie większej liczby plików w archiwum. Przykład zaprezentowany jest w [sample_solution](sample_solution) ( w szczególności [create_bundle.sh](sample_solution/create_bundle.sh)).
+
+
+## Q-learning
+Na starcie można obejrzeć filmik z kursu, z którego wzięte zostało to zadanie na [YouTube](https://www.youtube.com/watch?v=w33Lplx49_A).
+
+Q-learning to algorytm do rozwiązywania MDP. Zamiast spotkanej wcześniej wartości stanu V(S) używa on Q(S,A), które mówi jaki jest oczekiwany zysk od teraz w przyszłość jeśli będziemy postępować według danej polityki. W najprostszej formulacji można użyć tabelki z zapisywanymi wartościami i aktualizować je tak jak w algorytmie value iteration (poprzednie zadanie). Niestety często dzieje się tak, że przestrzeń stanów jest zbyt duża by zastosować dokładne rozwiązanie - w tym momencie do uzyskania Q używamy funkcji aproksymującej zależnej od stanu i akcji. Funkcja taka może być dowolna, najczęściej stosuje się sieci neuronowe. Mając taką funkcję możemy policzyć (dla dowolnego przejścia (S,A,S',R)) błąd predykcji naszego aproksymatora oraz gradient względem parametrów aproksymatora. Mając gradient możemy poprawić naszą aproksymację - zasadniczo jest to uczenie nadzorowane ze zmieniającą się funkcją straty. Dokłądny wzór pokazany jest poniżej:
+
+![q_update](qupdate.png)
+Zazwyczaj Q w "temporal difference target" wyłączone jest z propagacji gradientu (traktuje się je jako niezależną stałą).
+
+Tak wyglądałaby aktualizacja gdyby Q(s,a) było stablicowane (z Wikipedii): 
+![q_update](qupdate_table.png)
+
+
+
+Psudokod najprostszego q-learningu:
+
+```c++
+# w <- parametry naszej funkcji aproksymującej
+
+while True:
+    zaobserwuj stan s
+    wykonaj arbitralnie wybraną akcję a
+    otrzymaj nagrodę r
+    zaobserwuj stan s'
+    oblicz błąd TDerror = 0.5*(Q(s,a,w) - (r + gamma*max(Q(s',a',w)))^2
+    oblicz gradient g z TDerror po w
+    zaktualizuje wagi w: w -= alfa*g
+
+```
+
+Aby dokonać wyboru akcji, wystarczy wybrać akcję z największym Q, nie jest nam potrzebne R, ani P tak jak w Value Iteration. P i R nazywa się kolektywnie modelem - Q-learning ich nie potrzebuje, dlatego jest nazywany algorytmem **model-free**. Ważną cechą tego algorytmu jest też niezależność treningu od wykonywanych akcji ("off-policy"). Konkretnie, jeśli każdą akcję wykonamy w każdym stanie nieskończoną ilość razy to Q zbiegnie do dobrej wartości. Jest to oczywiście dość idylliczna właściwość gdyż nie mamy nieskończonego budżetu, lecz w ogólności pozwala na dużą swobodę jeśli chodzi o eksplorację. Z tego powodu najpopularniejszą strategią eksploracji jest **epsilon-greedy**, która z prawdopodobieńśtwem **epsilon** wykonuje akcję losową, a w przeciwnym  wypadku najlepszą akcję według aktualnej polityki (czyli argmax (Q)). Typowo zaczyna się od dużych wartości (np. 1), a kończy się na wartościach małych (np. 0).
+
+
+Najprostszym rozwiązaniem problemu jest zrobienie ekstrakcji cech F(Q,S) i użycie funkcji liniowej jako aproksymatora. I to jest właśnie zadanie: zaimplementować q-learning używający np. aproksymatora liniowego.
+
+## Co warto przejrzeć
+* [qlearningAgents.py](qlearningAgents.py) - szkielet algorytmu, nie trzeba go używać, ale może nakierować na dobrą drogę (chociaż dużo rzeczy tu dziwnie zaimplementowano więc część łatwiej napisać od 0 używając operacji macierzowych z numpy),
+* [featureExtractors.py](../misio/pacman/featureExtractors.py) - przykładowe proste ekstraktory cech dla par (a,s). Najbardziej popularne implementacje Q-learningu używają raczej f(s) i utrzymują osobne Q(s) dla każdej akcji (a właściwie osobne wyjścia w sieci neuronowej), lecz jest to kwestia implementacyjno wydajnościowa,
+* [pacman.py](../misio/pacman/pacman.py) oraz [game.py](../misio/pacman/game.py) - klasy odpowiedzialne za grę i stan (głównie w celu dowiedzenia się jakie cechy możemy wyciągnąć).
+
+## Co dalej?
+Do zaliczenia zadania wystarczający jest liniowy aproksymator i odpowiednie cechy, lecz zachęcam do zaimplementowania czegoś bardziej skomplikowanego np. 
+* zmiany techniki optymalizacji, np. użycie zmiennej prędkości uczenia, lub użycie optymalizatora takiego jak Adagrad zamiast zwykłej aktualizacji GD,
+* użycia sieci neuronowych (liczenie gradientów robi się wtedy nieprzyjemne dlatego warto zastosować gotowe biblioteki do ML, np. PyTorch lub Tensorflow),
+* zaimplementowania 'replay memory' ([DQN](https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf)),
+* zaimplementowania network freezing ([DQN](https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf)).
+ 
 
 ## Zaliczenie
-* Zgłoszenie rozwiązania na platformie [Optil.io](https://www.optil.io/optilion/problem/3169)
-* Termin: **przed** rozpoczęciem się sesji (była zmiana)
+* Zgłoszenie rozwiązania na platformie [Optil.io](https://www.optil.io/optilion/problem/3179),
+* Wzięte zostanie pod uwagę **OSTATNIE** zgłoszenie,
+* Termin: **przed** rozpoczęciem **lipca 2020**
 
 ## Punktacja
-* **15** punktów; punkty będą liczone na podstawie średniej proporcji zwycięstw (winrate, od 0 do 1), na podstawie następującego wzoru: **15*max(0, min(1, (winrate - 0.1) / 0.9 + 0.3)) * (winrate > 0.1)**
-* By zaliczyć zadanie należy otrzymać **POWYŻEJ** 30% punktów (4.5)
-* **Spóźnienie**: spóźnienia nie są karane (zmiana), zadanie można oddawać do końca semestru (30.06).
+* **15** punktów według wzoru P(score) = max(min(20, 4.5 +(score-7000)/(15000-7000) *(15-4.5)),0), gdzie score jest to sumaryczna ilość punktów ze wszystkich instancji. Ze wzoru tego uzyskać można do 20 punktów (do 5 punktów dodatkowych). W przypadku błędów na instancjach (RTE, MLE, TLE itd.) instancja liczy się jako -1000.
+* By zaliczyć zadanie należy otrzymać **CONAJMNIEJ** 30% punktów (4.5)
+* **Spóźnienie**: spóźnienia nie są dopuszczalne, należy dostarczyć rozwiązanie przed rozpoczęciem **lipca 2020**.

@@ -52,6 +52,7 @@ The keys are 'a', 's', 'd', and 'w' to move (or arrow keys).  Have fun!
 ###################################################
 # YOUR INTERFACE TO THE PACMAN WORLD: A GameState #
 ###################################################
+DEFAULT_TIMEOUT=-1000
 
 class GameState:
     """
@@ -127,6 +128,10 @@ class GameState:
         state.data.score += state.data.scoreChange
         GameState.explored.add(self)
         GameState.explored.add(state)
+
+        if not state.isFinished():
+            if self.timeout is not None and state.data.score <= self.timeout:
+                state.data._lose = True
         return state
 
     def getLegalPacmanActions(self):
@@ -228,14 +233,16 @@ class GameState:
     # You shouldn't need to call these directly #
     #############################################
 
-    def __init__(self, prevState=None):
+    def __init__(self, prevState=None, timeout=DEFAULT_TIMEOUT):
         """
         Generates a new state by copying information from its predecessor.
         """
         if prevState != None:  # Initial state
             self.data = GameStateData(prevState.data)
+            self.timeout = prevState.timeout
         else:
             self.data = GameStateData()
+            self.timeout = timeout
 
     def deepCopy(self):
         state = GameState(self)
@@ -282,9 +289,9 @@ class ClassicRules:
     and how the game starts and ends.
     """
 
-    def newGame(self, layout, pacmanAgent, ghostAgents, display, quiet=False):
+    def newGame(self, layout, pacmanAgent, ghostAgents, display, quiet=False, timeout=DEFAULT_TIMEOUT):
         agents = [pacmanAgent] + ghostAgents[:layout.getNumGhosts()]
-        initState = GameState()
+        initState = GameState(timeout=timeout)
         initState.initialize(layout, len(ghostAgents))
         game = Game(agents, display, self)
         game.state = initState
@@ -464,16 +471,17 @@ class GhostRules:
 
 class LocalPacmanGameRunner(object):
     def __init__(self,
-                 layout_dir,
+                 layout_path,
                  random_ghosts=False,
                  show_window=False,
                  zoom_window=1.0,
-                 frame_time=0.1
+                 frame_time=0.1,
+                 timeout=DEFAULT_TIMEOUT,
                  ):
         from .layout import get_layout
-        layout = get_layout(layout_dir)
+        layout = get_layout(layout_path)
         if layout == None:
-            raise Exception("The layout " + layout_dir + " cannot be found")
+            raise Exception("The layout " + layout_path + " cannot be found")
         self.layout = layout
         if random_ghosts:
             from .ghostAgents import RandomGhost
@@ -488,6 +496,7 @@ class LocalPacmanGameRunner(object):
         else:
             from .graphicsDisplay import PacmanGraphics
             self.display = PacmanGraphics(zoom_window, frameTime=frame_time)
+        self.timeout = timeout
 
     def run_game(self, agent, verbose=False):
 
@@ -499,7 +508,8 @@ class LocalPacmanGameRunner(object):
             agent,
             self.ghosts,
             self.display,
-            quiet)
+            quiet,
+            timeout=self.timeout)
         game.run()
 
         return game

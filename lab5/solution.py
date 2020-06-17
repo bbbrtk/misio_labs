@@ -24,7 +24,7 @@ class StoreWumpus(object):
     def run(self):
         finalmatrix = np.zeros((self.m + 1, self.m + 1))
 
-        runs = 3510
+        runs = 3210
         
         store_1 = np.random.poisson(self.l1, runs)
         store_2 = np.random.poisson(self.l2, runs)

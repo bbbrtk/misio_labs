@@ -1,17 +1,20 @@
 from ..pacman.agents import Agent
-from ..pacman.pacman import ClassicRules, GameState
+from ..pacman.pacman import ClassicRules, GameState, DEFAULT_TIMEOUT
 from ..pacman.layout import Layout, get_layout
 from ..pacman.textDisplay import NullGraphics
 
-END_GAME_WORD="END"
+END_GAME_WORD = "END"
+
+
 class OptilioPacmanGameRunner(object):
     def __init__(self,
-                 layout_dir,
+                 layout_path,
                  random_ghosts=False,
+                 timeout=DEFAULT_TIMEOUT
                  ):
-        layout = get_layout(layout_dir)
+        layout = get_layout(layout_path)
         if layout is None:
-            raise Exception("The layout " + layout_dir + " cannot be found")
+            raise Exception("The layout " + layout_path + " could not be loaded.")
         self.layout = layout
         if random_ghosts:
             from ..pacman.ghostAgents import RandomGhost
@@ -22,6 +25,7 @@ class OptilioPacmanGameRunner(object):
         self.ghosts = [GhostClass(i + 1) for i in range(layout.getNumGhosts())]
         self.display = NullGraphics()
         self.agent = StdIOAgent()
+        self.timeout = timeout
 
         print(layout.height)
         print(layout)
@@ -34,6 +38,7 @@ class OptilioPacmanGameRunner(object):
             self.agent,
             self.ghosts,
             self.display,
+            timeout=self.timeout,
             quiet=True)
         game.run(print_ghost_moves=True)
         print(END_GAME_WORD)
@@ -41,8 +46,9 @@ class OptilioPacmanGameRunner(object):
 
 
 class StdIOPacmanRunner(object):
-    def __init__(self):
+    def __init__(self, timeout=DEFAULT_TIMEOUT):
         self.layout = StdIOPacmanRunner.load_layout_from_stdin()
+        self.timeout = timeout
 
     @staticmethod
     def load_layout_from_stdin():
@@ -54,7 +60,7 @@ class StdIOPacmanRunner(object):
 
     def run_game(self, agent):
         # create initial state
-        state = GameState()
+        state = GameState(timeout=self.timeout)
         state.initialize(self.layout, self.layout.getNumGhosts())
         while not state.isFinished():
             action = agent.getAction(state)
@@ -67,6 +73,7 @@ class StdIOPacmanRunner(object):
                     state = state.generateSuccessor(ai, action)
             else:
                 break
+
 
 class StdIOAgent(Agent):
     def getAction(self, state):
