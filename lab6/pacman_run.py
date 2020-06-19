@@ -4,6 +4,7 @@ import numpy as np
 import random
 import tqdm
 from misio.util import generate_deterministic_seeds
+from misio.pacman.pacman import LocalPacmanGameRunner
 
 
 def load_agent(full_agent_class_name):
@@ -61,14 +62,13 @@ if __name__ == "__main__":
     # Choose a Pacman agent
     AgentClass = load_agent(args.agent)
     agent = AgentClass()
-    from misio.pacman.pacman import LocalPacmanGameRunner
+    
 
-    runner = LocalPacmanGameRunner(layout_path=args.layout,
-                                   random_ghosts=not args.smart_ghosts,
-                                   show_window=not args.no_graphics,
-                                   zoom_window=args.zoom,
-                                   frame_time=args.frame_time,
-                                   timeout=-1000)
+    runner = LocalPacmanGameRunner(args.layout,
+                                   not args.smart_ghosts,
+                                   not args.no_graphics,
+                                   args.zoom,
+                                   args.frame_time)
 
     games = []
     for i in tqdm.trange(args.num_games, leave=False):

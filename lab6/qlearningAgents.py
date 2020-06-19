@@ -14,7 +14,8 @@
 
 from misio.pacman.game import *
 from misio.pacman.learningAgents import ReinforcementAgent
-from misio.pacman.featureExtractors import IdentityExtractor
+# from misio.pacman.featureExtractors import IdentityExtractor
+from featureExtractors import IdentityExtractor, SimpleExtractor
 from misio.pacman.util import CustomCounter, lookup
 import random, math
 
@@ -45,7 +46,7 @@ class PacmanQAgent(ReinforcementAgent):
                  gamma=0.8,
                  alpha=0.2,
                  numTraining=0,
-                 extractor=IdentityExtractor(),
+                 extractor=SimpleExtractor(),
                  **args):
         "You can initialize Q-values here..."
 
@@ -56,11 +57,13 @@ class PacmanQAgent(ReinforcementAgent):
         self.featExtractor = extractor
         self.index = 0  # This is always Pacman
         self.weights = CustomCounter()
-        ReinforcementAgent.__init__(self, epsilon=epsilon,
+        self.lastAction = None
+        ReinforcementAgent.__init__(self, 
+                                    epsilon=epsilon,
                                     gamma=gamma,
                                     alpha=alpha,
-                                    numTraining=numTraining,
-                                    **args)
+                                    numTraining=numTraining
+                                    )
 
         "*** YOUR CODE HERE ***"
 
@@ -105,11 +108,45 @@ class PacmanQAgent(ReinforcementAgent):
         """
         # Pick Action
         legalActions = self.getLegalActions(state)
+        if 'Stop' in legalActions: legalActions.remove('Stop')
         action = None
+                
+        
         "*** YOUR CODE HERE ***"
-        raise NotImplementedError()
 
-        action = None
+        action = random.choice(legalActions)
+
+    
+
+        if self.lastAction:
+          features = self.featExtractor.getFeatures(state, self.lastAction)
+          print(features)
+
+          foodDirX = features["food-location"][0] - features["pacman"][0]
+          foodDirY = features["food-location"][1] - features["pacman"][1]
+          print (foodDirX, foodDirY)
+          possibleActions = []
+          if foodDirX < 0 and 'West' in legalActions: possibleActions.append('West')
+          if foodDirX > 0 and 'East' in legalActions: possibleActions.append('East')
+          if foodDirY < 0 and 'North' in legalActions: possibleActions.append('North')
+          if foodDirX > 0 and 'South' in legalActions: possibleActions.append('South')
+
+          if len(possibleActions) > 0: action = random.choice(possibleActions)
+          else: action = random.choice(legalActions)
+
+          features = self.featExtractor.getFeatures(state, action)
+          
+          if features["#-of-ghosts-1-step-away"] > 0:
+                print("aa!!!")
+                print(action)
+                legalActions.remove(action)
+                action = random.choice(legalActions)
+                print(legalActions)
+
+        
+        self.lastAction = action
+
+        "*** end of CODE HERE ***"
         self.doAction(state, action)
 
         return action
@@ -124,7 +161,9 @@ class PacmanQAgent(ReinforcementAgent):
           it will be called on your behalf
         """
         "*** YOUR CODE HERE ***"
-        raise NotImplementedError()
+
+        # run after getAction
+        # raise NotImplementedError()
 
     def getPolicy(self, state):
         return self.computeActionFromQValues(state)
