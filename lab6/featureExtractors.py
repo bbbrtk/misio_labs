@@ -84,7 +84,7 @@ class SimpleExtractor(FeatureExtractor):
 
         # compute the location of pacman after he takes the action
         x, y = state.getPacmanPosition()
-        features["pacman"] = [x, y]
+        # features["pacman"] = [x, y]
         dx, dy = Actions.directionToVector(action)
         next_x, next_y = int(x + dx), int(y + dy)
 
@@ -101,7 +101,7 @@ class SimpleExtractor(FeatureExtractor):
             # make the distance a number less than one otherwise the update
             # will diverge wildly
             features["closest-food"] = round(float(dist) / (walls.width * walls.height), 5)
-            features["dist"] = dist
-            features["food-location"] = [pos_x, pos_y]
+            # features["dist"] = dist
+            # features["food-location"] = [pos_x, pos_y]
         # features.divideAll(10.0)
         return features
