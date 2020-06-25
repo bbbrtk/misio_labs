@@ -14,10 +14,17 @@
 
 from misio.pacman.game import *
 from misio.pacman.learningAgents import ReinforcementAgent
-# from misio.pacman.featureExtractors import IdentityExtractor
-from featureExtractors import IdentityExtractor, SimpleExtractor
 from misio.pacman.util import CustomCounter, lookup
 import random, math
+
+TAKE_WEIGHTS = False
+HARDCODED = False
+OPTILIO_MODE = False
+
+if OPTILIO_MODE:
+    from misio.pacman.featureExtractors import IdentityExtractor, SimpleExtr
+else:
+    from featureExtractors import IdentityExtractor, SimpleExtractor
 
 
 class PacmanQAgent(ReinforcementAgent):
@@ -45,7 +52,7 @@ class PacmanQAgent(ReinforcementAgent):
                  epsilon=0.05,
                  gamma=0.8,
                  alpha=0.2,
-                 numTraining=9900,
+                 numTraining=900,
                  extractor=SimpleExtractor(),
                  **args):
         "You can initialize Q-values here..."
@@ -179,11 +186,17 @@ class ApproxAgent(PacmanQAgent):
        and update.  All other QLearningAgent functions
        should work as is.
     """
-    def __init__(self, extractor='IdentityExtractor', **args):
+    def __init__(self, extractor='IdentityExtractor', train=False, optilio=False, weights_values=[0,0,0,0], **args):
         self.featExtractor = lookup(extractor, globals())()
         PacmanQAgent.__init__(self, **args)
         self.weights = CustomCounter()
         self.weight = 0
+        self.optilio = optilio
+        self.train = train
+
+        if self.train:
+            for number, feature in zip(weights_values, self.weights):
+                self.weights[feature] = float(number)
 
     def getWeights(self):
         return self.weights
@@ -223,11 +236,14 @@ class ApproxAgent(PacmanQAgent):
         # call the super-class final method
         PacmanQAgent.final(self, state)
 
-        # did we finish training?
-        if self.episodesSoFar == self.numTraining:
-            with open("weights.txt", "w") as f:
-              string = f""
-              for w in self.weights:
-                string += f"{self.weights[w]} "
-              print(string, file=f)
-              print(f"weights: {string}")
+        # # did we finish training?
+        if (not self.optilio) and self.train:
+            if self.episodesSoFar == self.numTraining:
+                with open("weights.txt", "w") as f:
+                    string = ""
+                    for w in self.weights:
+                        string += str(self.weights[w])
+                        string += " "
+                    print(string, file=f)
+                    print(f"weights: {string}")
+

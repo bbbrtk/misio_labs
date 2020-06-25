@@ -14,10 +14,17 @@
 
 from misio.pacman.game import *
 from misio.pacman.learningAgents import ReinforcementAgent
-# from misio.pacman.featureExtractors import IdentityExtractor
-from featureExtractors import IdentityExtractor, SimpleExtractor
 from misio.pacman.util import CustomCounter, lookup
 import random, math
+
+TAKE_WEIGHTS = False
+HARDCODED = False
+OPTILIO_MODE = False
+
+if OPTILIO_MODE:
+    from misio.pacman.featureExtractors import IdentityExtractor, SimpleExtr
+else:
+    from featureExtractors import IdentityExtractor, SimpleExtractor
 
 
 class PacmanQAgent(ReinforcementAgent):
@@ -42,10 +49,10 @@ class PacmanQAgent(ReinforcementAgent):
     """
 
     def __init__(self,
-                 epsilon=0.25,
+                 epsilon=0.05,
                  gamma=0.8,
                  alpha=0.2,
-                 numTraining=0,
+                 numTraining=900,
                  extractor=SimpleExtractor(),
                  **args):
         "You can initialize Q-values here..."
@@ -57,6 +64,7 @@ class PacmanQAgent(ReinforcementAgent):
         self.featExtractor = extractor
         self.index = 0  # This is always Pacman
         self.weights = CustomCounter()
+        self.q_values = CustomCounter()
         self.lastAction = None
         ReinforcementAgent.__init__(self, 
                                     epsilon=epsilon,
@@ -73,8 +81,7 @@ class PacmanQAgent(ReinforcementAgent):
           Should return 0.0 if we have never seen a state
           or the Q node value otherwise
         """
-        "*** YOUR CODE HERE ***"
-        raise NotImplementedError()
+        return self.q_values[(state, action)]
 
     def computeValueFromQValues(self, state):
         """
@@ -83,8 +90,13 @@ class PacmanQAgent(ReinforcementAgent):
           there are no legal actions, which is the case at the
           terminal state, you should return a value of 0.0.
         """
-        "*** YOUR CODE HERE ***"
-        raise NotImplementedError()
+        q_vals = []
+        for action in self.getLegalActions(state):
+            q_vals.append(self.getQValue(state, action))
+        if len(self.getLegalActions(state)) == 0:
+            return 0.0
+        else:
+            return max(q_vals)
 
     def computeActionFromQValues(self, state):
         """
@@ -92,8 +104,18 @@ class PacmanQAgent(ReinforcementAgent):
           are no legal actions, which is the case at the terminal state,
           you should return None.
         """
-        "*** YOUR CODE HERE ***"
-        raise NotImplementedError()
+        max_action = None
+        max_q_val = 0
+        for action in self.getLegalActions(state):
+            q_val = self.getQValue(state, action)
+            if q_val > max_q_val or max_action is None:
+                max_q_val = q_val
+                max_action = action
+        return max_action
+
+    def flipCoin(self, p ):
+        r = random.random()
+        return r < p
 
     def getAction(self, state):
         """
@@ -106,46 +128,13 @@ class PacmanQAgent(ReinforcementAgent):
           HINT: You might want to use util.flipCoin(prob)
           HINT: To pick randomly from a list, use random.choice(list)
         """
-        # Pick Action
+               
+        
         legalActions = self.getLegalActions(state)
-        if 'Stop' in legalActions: legalActions.remove('Stop')
-        action = None
-                
-        
-        "*** YOUR CODE HERE ***"
-
-        action = random.choice(legalActions)
-
-    
-
-        if self.lastAction:
-          features = self.featExtractor.getFeatures(state, self.lastAction)
-          print(features)
-          print(state.getScore())
-
-          foodDirX = features["food-location"][0] - features["pacman"][0]
-          foodDirY = features["food-location"][1] - features["pacman"][1]
-          print (foodDirX, foodDirY)
-          possibleActions = []
-          if foodDirX < 0 and 'West' in legalActions: possibleActions.append('West')
-          if foodDirX > 0 and 'East' in legalActions: possibleActions.append('East')
-          if foodDirY < 0 and 'North' in legalActions: possibleActions.append('North')
-          if foodDirX > 0 and 'South' in legalActions: possibleActions.append('South')
-
-          if len(possibleActions) > 0: action = random.choice(possibleActions)
-          else: action = random.choice(legalActions)
-
-          features = self.featExtractor.getFeatures(state, action)
-          
-          if features["#-of-ghosts-1-step-away"] > 0:
-                print("aa!!!")
-                print(action)
-                legalActions.remove(action)
-                action = random.choice(legalActions)
-                print(legalActions)
-
-        
-        self.lastAction = action
+        if self.flipCoin(self.epsilon):
+            action = random.choice(legalActions)
+        else:
+            action = self.computeActionFromQValues(state)
 
         "*** end of CODE HERE ***"
         self.doAction(state, action)
@@ -161,10 +150,14 @@ class PacmanQAgent(ReinforcementAgent):
           NOTE: You should never call this function,
           it will be called on your behalf
         """
-        "*** YOUR CODE HERE ***"
+        first_part = (1 - self.alpha) * self.getQValue(state, action)
+        if len(self.getLegalActions(nextState)) == 0:
+            sample = reward
+        else:
+            sample = reward + (self.discount * max([self.getQValue(nextState, next_action) for next_action in self.getLegalActions(nextState)]))
+        second_part = self.alpha * sample
+        self.q_values[(state, action)] = first_part + second_part
 
-        # run after getAction
-        # raise NotImplementedError()
 
     def getPolicy(self, state):
         return self.computeActionFromQValues(state)
@@ -178,10 +171,80 @@ class PacmanQAgent(ReinforcementAgent):
     def final(self, state):
         "Called at the end of each game."
         # call the super-class final method
-        ReinforcementAgent.final(self, state)
+        if not self.optilio:
+            ReinforcementAgent.final(self, state)
 
         # did we finish training?
         if self.episodesSoFar == self.numTraining:
             # you might want to print your weights here for debugging
             "*** YOUR CODE HERE ***"
             pass
+
+class ApproxAgent(PacmanQAgent):
+    """
+       ApproximateQLearningAgent
+       You should only have to overwrite getQValue
+       and update.  All other QLearningAgent functions
+       should work as is.
+    """
+    def __init__(self, extractor='IdentityExtractor', train=False, optilio=False, weights_values=[0,0,0,0], **args):
+        self.featExtractor = lookup(extractor, globals())()
+        PacmanQAgent.__init__(self, **args)
+        self.weights = CustomCounter()
+        self.weight = 0
+        self.optilio = optilio
+        self.train = train
+
+        if self.train or self.optilio:
+            for number, feature in zip(weights_values, ["bias", "#-of-ghosts-1-step-away", "eats-food", "closest-food"]):
+                self.weights[feature] = float(number)
+
+    def getWeights(self):
+        return self.weights
+
+    def getQValue(self, state, action):
+        """
+          Should return Q(state,action) = w * featureVector
+          where * is the dotProduct operator
+        """
+        q_value = 0
+        features = self.featExtractor.getFeatures(state, action)
+        counter = 0
+        for feature in features:
+            q_value += features[feature] * self.weights[feature]
+            counter += 1
+
+        return q_value
+
+    def update(self, state, action, nextState, reward):
+        """
+           Should update your weights based on transition
+        """
+        features = self.featExtractor.getFeatures(state, action)
+        # features_list = features.sortedKeys()
+        counter = 0
+        for feature in features:
+            difference = 0
+            if len(self.getLegalActions(nextState)) == 0:
+                difference = reward - self.getQValue(state, action)
+            else:
+                difference = (reward + self.discount * max([self.getQValue(nextState, nextAction) for nextAction in self.getLegalActions(nextState)])) - self.getQValue(state, action)
+            self.weights[feature] = self.weights[feature] + self.alpha * difference * features[feature]
+            counter += 1
+
+    def final(self, state):
+        "Called at the end of each game."
+        # call the super-class final method
+        PacmanQAgent.final(self, state)
+
+        # # did we finish training?
+        if (not self.optilio) and self.train:
+            if self.episodesSoFar == self.numTraining:
+                with open("weights.txt", "w") as f:
+                    string = ""
+                    for w in self.weights:
+                        string += str(self.weights[w])
+                        string += " "
+                    print(string, file=f)
+                    print(f"weights: {string}")
+
