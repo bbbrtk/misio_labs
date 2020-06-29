@@ -13,16 +13,16 @@
 
 
 from misio.pacman.game import *
+from misio.optilio.pacman import StdIOPacmanRunner
 from misio.pacman.learningAgents import ReinforcementAgent
 from misio.pacman.util import CustomCounter, lookup
 import random, math
 
-TAKE_WEIGHTS = False
-HARDCODED = False
-OPTILIO_MODE = False
+HARDCODED = True
+OPTILIO_MODE = True
 
 if OPTILIO_MODE:
-    from misio.pacman.featureExtractors import IdentityExtractor, SimpleExtr
+    from misio.pacman.featureExtractors import IdentityExtractor, SimpleExtractor
 else:
     from featureExtractors import IdentityExtractor, SimpleExtractor
 
@@ -139,6 +139,7 @@ class PacmanQAgent(ReinforcementAgent):
         "*** end of CODE HERE ***"
         self.doAction(state, action)
 
+
         return action
 
     def update(self, state, action, nextState, reward):
@@ -194,13 +195,23 @@ class ApproxAgent(PacmanQAgent):
         self.weight = 0
         self.optilio = optilio
         self.train = train
+        
 
-        if self.train or self.optilio:
+        if (not self.train) or self.optilio or weights_values != [0,0,0,0]:
             for number, feature in zip(weights_values, ["bias", "#-of-ghosts-1-step-away", "eats-food", "closest-food"]):
                 self.weights[feature] = float(number)
+        
+        if not self.optilio:
+            print(self.weights)
 
     def getWeights(self):
         return self.weights
+
+    def registerInitialState(self, state):
+        self.startEpisode()
+        if not self.optilio:
+            if self.episodesSoFar == 0:
+                print('Beginning %d episodes of Training' % (self.numTraining))
 
     def getQValue(self, state, action):
         """
@@ -231,11 +242,47 @@ class ApproxAgent(PacmanQAgent):
                 difference = (reward + self.discount * max([self.getQValue(nextState, nextAction) for nextAction in self.getLegalActions(nextState)])) - self.getQValue(state, action)
             self.weights[feature] = self.weights[feature] + self.alpha * difference * features[feature]
             counter += 1
+        # print(self.weights)
 
     def final(self, state):
-        "Called at the end of each game."
-        # call the super-class final method
-        PacmanQAgent.final(self, state)
+        """
+          Called by Pacman game at the terminal state
+        """
+        deltaReward = state.getScore() - self.lastState.getScore()
+        self.observeTransition(self.lastState, self.lastAction, state, deltaReward)
+        self.stopEpisode()
+
+        # Make sure we have this var
+        if not 'episodeStartTime' in self.__dict__:
+            self.episodeStartTime = time.time()
+        if not 'lastWindowAccumRewards' in self.__dict__:
+            self.lastWindowAccumRewards = 0.0
+        self.lastWindowAccumRewards += state.getScore()
+
+        if not self.optilio:
+            NUM_EPS_UPDATE = 100
+            if self.episodesSoFar % NUM_EPS_UPDATE == 0:
+                print('Reinforcement Learning Status:')
+                windowAvg = self.lastWindowAccumRewards / float(NUM_EPS_UPDATE)
+                if self.episodesSoFar <= self.numTraining:
+                    trainAvg = self.accumTrainRewards / float(self.episodesSoFar)
+                    print('\tCompleted %d out of %d training episodes' % (
+                        self.episodesSoFar, self.numTraining))
+                    print('\tAverage Rewards over all training: %.2f' % (
+                        trainAvg))
+                else:
+                    testAvg = float(self.accumTestRewards) / (self.episodesSoFar - self.numTraining)
+                    print('\tCompleted %d test episodes' % (self.episodesSoFar - self.numTraining))
+                    print('\tAverage Rewards over testing: %.2f' % testAvg)
+                print('\tAverage Rewards for last %d episodes: %.2f' % (
+                    NUM_EPS_UPDATE, windowAvg))
+                print('\tEpisode took %.2f seconds' % (time.time() - self.episodeStartTime))
+                self.lastWindowAccumRewards = 0.0
+                self.episodeStartTime = time.time()
+
+            if self.episodesSoFar == self.numTraining:
+                msg = 'Training Done (turning off epsilon and alpha)'
+                print('%s\n%s' % (msg, '-' * len(msg)))
 
         # # did we finish training?
         if (not self.optilio) and self.train:
@@ -246,5 +293,21 @@ class ApproxAgent(PacmanQAgent):
                         string += str(self.weights[w])
                         string += " "
                     print(string, file=f)
-                    print(f"weights: {string}")
+                    # print(f"FINAL weights: {string}")
+
+if __name__ == "__main__":
+    if HARDCODED:
+        weights = [-27.9914705800362,-3394.38754114026,334.87185911475,-60.5944964389825]
+    else:
+        with open("weights.txt") as f:
+            weights = [float(x) for x in f.readline().split()]
+
+    runner = StdIOPacmanRunner()
+    games_num = int(input())
+
+    agent = ApproxAgent(train=False, optilio=True, numTraining=0, weights_values=weights)
+
+    for _ in range(games_num):
+        runner.run_game(agent)
+
 

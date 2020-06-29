@@ -55,7 +55,7 @@ def closestFood(pos, food, walls):
         expanded.add((pos_x, pos_y))
         # if we find a food at this location then exit
         if food[pos_x][pos_y]:
-            return dist, pos_x, pos_y
+            return dist
         # otherwise spread out from the location to its neighbours
         nbrs = Actions.getLegalNeighbors((pos_x, pos_y), walls)
         for nbr_x, nbr_y in nbrs:
@@ -84,7 +84,6 @@ class SimpleExtractor(FeatureExtractor):
 
         # compute the location of pacman after he takes the action
         x, y = state.getPacmanPosition()
-        # features["pacman"] = [x, y]
         dx, dy = Actions.directionToVector(action)
         next_x, next_y = int(x + dx), int(y + dy)
 
@@ -96,12 +95,10 @@ class SimpleExtractor(FeatureExtractor):
         if not features["#-of-ghosts-1-step-away"] and food[next_x][next_y]:
             features["eats-food"] = 1.0
 
-        dist, pos_x, pos_y = closestFood((next_x, next_y), food, walls)
+        dist = closestFood((next_x, next_y), food, walls)
         if dist is not None:
             # make the distance a number less than one otherwise the update
             # will diverge wildly
-            features["closest-food"] = round(float(dist) / (walls.width * walls.height), 5)
-            # features["dist"] = dist
-            # features["food-location"] = [pos_x, pos_y]
-        # features.divideAll(10.0)
+            features["closest-food"] = float(dist) / (walls.width * walls.height)
+        features.divideAll(10.0)
         return features
