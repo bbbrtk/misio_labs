@@ -8,4 +8,4 @@ then
     rm -rf misio_labs
 fi
 
-./my_agent.py --train
+./trainAgent.py

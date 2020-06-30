@@ -39,17 +39,30 @@ def playGame(layouts, numberOfGames, training, optilio, numTraining):
         print("Median score:  {:0.2f}".format(np.median(scores)))
         print("Win Rate:      {}/{} {:0.2f}".format(results.sum(), len(results), results.mean()))
 
+def playOneGame(layouts, numberOfGames, training, optilio, numTraining):
+    for layout in layouts:
+        with open("weights.txt") as f:
+                    weights = [float(x) for x in f.readline().split()]
+
+        agent = ApproxAgent(train=training, optilio=optilio, numTraining=numTraining, weights_values=weights)
+
+        runner = LocalPacmanGameRunner(layout, random_ghosts=False)
+        game = runner.run_game(agent)
+
 if __name__ == "__main__":
 
     layouts = []
-    for layout in  glob.glob("./pacman_layouts/*Classic*"):
+    for layout in  glob.glob("./pacman_layouts/*"):
         layouts.append(layout[2:-4])
     print(layouts)
         
-    numberOfGames = 1
-    # for i in range(1000):
-    #     playGame(layouts, numberOfGames, training=True, optilio=False, numTraining=numberOfGames)
+    numberOfGames = 3000
+    for i in range(numberOfGames):
+        playOneGame(layouts, numberOfGames, training=True, optilio=False, numTraining=1)
+        print(f">>> TRAINING NUM. \t {i}/{numberOfGames} <<<")
+        # playGame(layouts, numberOfGames, training=True, optilio=False, numTraining=0)
 
+    
     print("=== === === === TEST === === === ===")
     playGame(layouts, int(100), training=False, optilio=False, numTraining=0)
 

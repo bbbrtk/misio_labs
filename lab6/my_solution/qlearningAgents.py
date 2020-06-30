@@ -18,8 +18,8 @@ from misio.pacman.learningAgents import ReinforcementAgent
 from misio.pacman.util import CustomCounter, lookup
 import random, math
 
-HARDCODED = True
-OPTILIO_MODE = True
+HARDCODED = False
+OPTILIO_MODE = False
 
 if OPTILIO_MODE:
     from misio.pacman.featureExtractors import IdentityExtractor, SimpleExtractor
@@ -188,7 +188,7 @@ class ApproxAgent(PacmanQAgent):
        and update.  All other QLearningAgent functions
        should work as is.
     """
-    def __init__(self, extractor='IdentityExtractor', train=False, optilio=False, weights_values=[0,0,0,0], **args):
+    def __init__(self, extractor='IdentityExtractor', train=False, optilio=False, weights_values=[0,0,0,0,0], **args):
         self.featExtractor = lookup(extractor, globals())()
         PacmanQAgent.__init__(self, **args)
         self.weights = CustomCounter()
@@ -197,12 +197,13 @@ class ApproxAgent(PacmanQAgent):
         self.train = train
         
 
-        if (not self.train) or self.optilio or weights_values != [0,0,0,0]:
-            for number, feature in zip(weights_values, ["bias", "#-of-ghosts-1-step-away", "eats-food", "closest-food"]):
+        if (not self.train) or self.optilio or weights_values != [0,0,0,0,0]:
+            for number, feature in zip(weights_values, ["bias", "#-of-ghosts-1-step-away", "eats-food", "closest-food", "capsules"]):
                 self.weights[feature] = float(number)
         
         if not self.optilio:
-            print(self.weights)
+            # print(self.weights)
+            pass
 
     def getWeights(self):
         return self.weights
@@ -211,7 +212,8 @@ class ApproxAgent(PacmanQAgent):
         self.startEpisode()
         if not self.optilio:
             if self.episodesSoFar == 0:
-                print('Beginning %d episodes of Training' % (self.numTraining))
+                # print('Beginning %d episodes of Training' % (self.numTraining))
+                pass
 
     def getQValue(self, state, action):
         """
@@ -281,8 +283,9 @@ class ApproxAgent(PacmanQAgent):
                 self.episodeStartTime = time.time()
 
             if self.episodesSoFar == self.numTraining:
-                msg = 'Training Done (turning off epsilon and alpha)'
-                print('%s\n%s' % (msg, '-' * len(msg)))
+                # msg = 'Training Done (turning off epsilon and alpha)'
+                # print('%s\n%s' % (msg, '-' * len(msg)))
+                pass
 
         # # did we finish training?
         if (not self.optilio) and self.train:
@@ -297,7 +300,8 @@ class ApproxAgent(PacmanQAgent):
 
 if __name__ == "__main__":
     if HARDCODED:
-        weights = [-27.9914705800362,-3394.38754114026,334.87185911475,-60.5944964389825]
+        # -172.99452015340418 -4546.398547755926 316.4952221706852 393.3623709571098 53.103908112869306 
+        weights = [45.66863508222667, -4484.887811912104, 237.21305014217407, -746.7090726269469, 93.30690509724428]
     else:
         with open("weights.txt") as f:
             weights = [float(x) for x in f.readline().split()]
