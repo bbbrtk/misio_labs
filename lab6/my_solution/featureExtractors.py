@@ -15,7 +15,7 @@
 "Feature extractors for Pacman game states"
 
 from misio.pacman.game import Directions, Actions
-from misio.pacman.util import CustomCounter
+from misio.pacman.util import CustomCounter, manhattan_distance
 
 
 class FeatureExtractor:
@@ -77,8 +77,24 @@ class SimpleExtractor(FeatureExtractor):
         food = state.getFood()
         walls = state.getWalls()
         ghosts = state.getGhostPositions()
-
+        capsulesLeft = len(state.getCapsules())
+        scaredGhost = []
+        activeGhost = []
         features = CustomCounter()
+
+        for ghost in state.getGhostStates():
+            if not ghost.scaredTimer:
+                activeGhost.append(ghost)
+            else:
+                #print (ghost.scaredTimer)
+                scaredGhost.append(ghost)
+        
+        pos = state.getPacmanPosition()
+        def getManhattanDistances(ghosts): 
+            return map(lambda g: manhattan_distance(pos, g.getPosition()), ghosts) 
+            
+        distanceToClosestActiveGhost = distanceToClosestScaredGhost = 0
+
 
         features["bias"] = 1.0
 
@@ -100,5 +116,19 @@ class SimpleExtractor(FeatureExtractor):
             # make the distance a number less than one otherwise the update
             # will diverge wildly
             features["closest-food"] = float(dist) / (walls.width * walls.height)
+
+        if scaredGhost: # and not activeGhost:
+            distanceToClosestScaredGhost = min(getManhattanDistances(scaredGhost))
+            if activeGhost:
+                distanceToClosestActiveGhost = min(getManhattanDistances(activeGhost))
+            else:
+                distanceToClosestActiveGhost = 10	
+            features["capsules"] = capsulesLeft
+            #features["dist-to-closest-active-ghost"] = 2*(1./distanceToClosestActiveGhost)
+            if distanceToClosestScaredGhost <=8 and distanceToClosestActiveGhost >=2:#features["#-of-ghosts-1-step-away"] >= 1:
+                features["#-of-ghosts-1-step-away"] = 0
+                features["eats-food"] = 0.0
+                #features["closest-food"] = 0
+
         features.divideAll(10.0)
         return features
