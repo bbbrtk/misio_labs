@@ -24,7 +24,7 @@ tf.disable_v2_behavior()
 # -----------
 ENVIRONMENT = "Pendulum-v0"
 
-def tfLoad():
+def tfLoad(environment_name):
 	RENDER_SOME = False
 	# hyperparameters
 	gamma = 0.99				# reward discount factor
@@ -54,7 +54,7 @@ def tfLoad():
 	exploration_sigma = 0.2	# sigma parameter for the exploration noise process: dXt = theta*(mu-Xt	)*dt + sigma*dWt
 
 	# game parameters
-	env = gym.make(ENVIRONMENT)
+	env = gym.make(environment_name)
 	state_dim = np.prod(np.array(env.observation_space.shape)) 	# Get total number of dimensions in state
 	action_dim = np.prod(np.array(env.action_space.shape))		# Assuming continuous action space
 
@@ -167,7 +167,7 @@ def tfLoad():
 
 
 if __name__ == "__main__":
-	actions, state_ph, is_training_ph = tfLoad()
+	actions, state_ph, is_training_ph = tfLoad(ENVIRONMENT)
 	n_games = 10
 	env = gym.make(ENVIRONMENT)
 
@@ -187,7 +187,6 @@ if __name__ == "__main__":
 		total_reward = 0
 		while not done:	
 			env.render()
-
 			action_for_state, = sess.run(actions, feed_dict = {state_ph: observation[None], is_training_ph: False})
 			# print(action_for_state, flush=True)
 

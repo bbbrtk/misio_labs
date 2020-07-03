@@ -42,7 +42,7 @@ def bipedalWalker():
 	sess = tf.Session()	
 	sess.run(tf.global_variables_initializer())
 	saver = tf.train.Saver()
-	saver.restore(sess, "tmpBipedalDrop/model.ckpt")
+	saver.restore(sess, "tmpBipedal/model.ckpt")
 
 	num_games = int(input())
 	for _ in range(num_games):

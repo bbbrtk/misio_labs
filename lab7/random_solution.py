@@ -21,5 +21,7 @@ if __name__ == "__main__":
             state = input()
             if state == "END":
                 break
+            observation = [float(i) for i in state[1:-1].split(' ') if len(i) > 0 ]
+            action = min(observation)
             action = (np.random.random(action_dimensions)-0.5)*2*high
             print(action, flush=True)
