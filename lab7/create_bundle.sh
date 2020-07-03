@@ -7,4 +7,4 @@ train="train.sh"
 chmod +x ${main_file}
 chmod +x ${train}
 
-tar -cvzf ${archive} ${main_file} ddpg.py run_trained_model.py tmp tmpBipedalDrop train.sh
+tar -cvzf ${archive} ${main_file} ddpg.py run_trained_model.py tmpBipedal tmpPendulum train.sh
