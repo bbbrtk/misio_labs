@@ -3,7 +3,7 @@
 from misio.lost_wumpus.testing import test_locally
 from misio.lost_wumpus.agents import RandomAgent, SnakeAgent
 from lost_wumpus import MyWumpus
-from third import MyAgent
+from solutiontwo import FinalAgent
 import numpy as np
 import time
 
@@ -15,7 +15,7 @@ n = 10
 
 t1 = time.time()
 # test_locally("tests/2015.in", SnakeAgent, n=n)
-test_locally("tests/2015.in", MyAgent, n=n)
+test_locally("tests/2015.in", FinalAgent, n=n)
 print(time.time() - t1)
 
 # t1 = time.time()
